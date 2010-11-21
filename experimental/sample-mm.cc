@@ -319,10 +319,8 @@ double MM::compute_log_likelihood() {
         }
 
         // Log-likelihood of the slice of the document accounted for by _c[d]
-        CHECK_LE(log_lik, 0) << "hello3";
         CHECK((_c[d] < FLAGS_K) || FLAGS_mm_prior == kDirichletProcess) << "B";
         log_lik += document_slice_log_likelihood(d, _c[d]);
-        CHECK_LE(log_lik, 0) << "hello2";
 
         // Account for the noise assignments
         for (int n = 0; n < _D[d].size(); n++) {
