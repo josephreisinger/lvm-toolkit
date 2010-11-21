@@ -22,6 +22,15 @@
 #include "gibbs-base.h"
 #include "sample-soft-crosscat.h"
 
+// Two main implementations:
+//   (1) normal: treat the topic model part for a document as the set of
+//       clusters picked out by the document (one per view)
+//   (2) marginal: treat each "topic" as the marginal over all clusters inside
+//       it; this model seems to make more sense to me
+DEFINE_string(implementation,
+             "normal",
+             "_normal_ model or cluster _marginal_ model.");
+
 // the number of feature clusters
 DEFINE_int32(M,
              1,
@@ -52,8 +61,17 @@ DEFINE_bool(cc_include_noise_view,
             false,
             "Should the first view be confined to a single cluster.");
 
+
+const string kNormalModel = "normal";
+const string kMarginalModel = "marginal";
+
 void SoftCrossCatMM::batch_allocation() {
     LOG(INFO) << "initialize";
+
+    CHECK(FLAGS_implementation == "normal" || FLAGS_implementation == "marginal");
+
+    is_cluster_marginal = (FLAGS_implementation == "marginal");
+
 
     // Set up the asymmetric dirichlet priors for each clustering and for the
     // cross-cat
@@ -62,6 +80,9 @@ void SoftCrossCatMM::batch_allocation() {
     
     // Keep track of the number of clusters in each view
     _current_component.resize(FLAGS_M);
+
+    _cluster_marginal.set_empty_key(kEmptyUnsignedKey);
+    _cluster_marginal.set_deleted_key(kDeletedUnsignedKey);
 
     // Allocate the initial clusters
     for (int m = 0; m < FLAGS_M; m++) {
@@ -95,6 +116,7 @@ void SoftCrossCatMM::batch_allocation() {
         for (int m = 0; m < FLAGS_M; m++) {
             _c[d][m] = 0; //sample_integer(_cluster[m].size());
             _cluster[m][_c[d][m]].ndsum += 1; // Can't use ADD b/c we need to maintain ndsum over all the views
+            _cluster_marginal[m].ndsum += 1; // Can't use ADD b/c we need to maintain ndsum over all the views
         }
 
         // Initial level assignments
@@ -115,6 +137,7 @@ void SoftCrossCatMM::batch_allocation() {
             // views
             // _cluster[_m[w]][zdm].add(w, d);
             _cluster[zdn][cdm].add_no_ndsum(w, d);
+            _cluster_marginal[zdn].add_no_ndsum(w, d);
             // _cluster[zdn][cdm].nw[w] += 1;
             // _cluster[zdn][cdm].nwsum += 1;
             // _cluster[zdn][cdm].nd[d] += 1;
@@ -140,8 +163,6 @@ void SoftCrossCatMM::batch_allocation() {
 // Performs a single document's level assignment resample step
 void SoftCrossCatMM::resample_posterior_c_for(unsigned d) {
     for (int m = 0; m < FLAGS_M; m++) {
-        clustering& cm = _cluster[m];
-
         unsigned old_cdm = _c[d][m];
 
         unsigned total_removed_count = 0;
@@ -155,33 +176,36 @@ void SoftCrossCatMM::resample_posterior_c_for(unsigned d) {
                 total_removed_count += 1;
                 removed_w[w] += 1;
                 // Remove this document and word from the counts
-                cm[old_cdm].nw[w] -= 1;  // # of words in cluster c view m
-                cm[old_cdm].nwsum -= 1;  // # of words in cluster c
-                CHECK_GE(cm[old_cdm].nw[w], 0);
+                _cluster[m][old_cdm].nw[w] -= 1;  // # of words in cluster c view m
+                _cluster[m][old_cdm].nwsum -= 1;  // # of words in cluster c
+                _cluster_marginal[m].nw[w] -= 1;
+                _cluster_marginal[m].nwsum -= 1;
+                CHECK_GE(_cluster[m][old_cdm].nw[w], 0);
+                CHECK_GE(_cluster_marginal[m].nw[w], 0);
             }
         }
-        CHECK_GT(cm[old_cdm].ndsum, 0);
+        CHECK_GT(_cluster[m][old_cdm].ndsum, 0);
 
-        cm[old_cdm].ndsum -= 1;  // # of docs in clsuter
+        _cluster[m][old_cdm].ndsum -= 1;  // # of docs in clsuter
 
-        CHECK_GE(cm[old_cdm].nwsum, 0);
-        CHECK_LT(cm[old_cdm].ndsum, _lD);
+        CHECK_GE(_cluster[m][old_cdm].nwsum, 0);
+        CHECK_LT(_cluster[m][old_cdm].ndsum, _lD);
 
         // Compute the log likelihood of each cluster assignment given all the other
         // document-cluster assignments
         vector<pair<unsigned,double> > lp_z_d;
-        for (clustering::iterator itr = cm.begin();
-                itr != cm.end();
+        for (clustering::iterator itr = _cluster[m].begin();
+                itr != _cluster[m].end();
                 itr++) {
             unsigned l = itr->first;
 
             double sum = 0;
             
             // First add in the prior over the clusters
-            sum += log(cm[l].ndsum) - log(_lD - 1 + FLAGS_mm_alpha);
+            sum += log(_cluster[m][l].ndsum) - log(_lD - 1 + FLAGS_mm_alpha);
 
             // Add in the normalizer for the multinomial-dirichlet likelihood
-            sum += gammaln(_eta_sum + cm[l].nwsum) - gammaln(_eta_sum + cm[l].nwsum + total_removed_count);
+            sum += gammaln(_eta_sum + _cluster[m][l].nwsum) - gammaln(_eta_sum + _cluster[m][l].nwsum + total_removed_count);
 
             // Now account for the likelihood of the data (marginal posterior of
             // DP-Mult); only need to loop over what was actually removed since
@@ -191,7 +215,7 @@ void SoftCrossCatMM::resample_posterior_c_for(unsigned d) {
                     itr++) {
                 unsigned w = itr->first;
                 unsigned count = itr->second;
-                sum += gammaln(_eta[w] + count + cm[l].nw[w]) - gammaln(_eta[w] + cm[l].nw[w]);
+                sum += gammaln(_eta[w] + count + _cluster[m][l].nw[w]) - gammaln(_eta[w] + _cluster[m][l].nw[w]);
             }
             lp_z_d.push_back(pair<unsigned,double>(l, sum));
         }
@@ -199,8 +223,8 @@ void SoftCrossCatMM::resample_posterior_c_for(unsigned d) {
 
         // Add an additional new component if not in the noise view, we haven't
         // hit KMAX, and this isn't a singleton cluster already
-        if (cm[old_cdm].ndsum > 0) {
-            if (cm.size() < FLAGS_KMAX || FLAGS_KMAX==-1) {
+        if (_cluster[m][old_cdm].ndsum > 0) {
+            if (_cluster[m].size() < FLAGS_KMAX || FLAGS_KMAX==-1) {
                 if (m != 0 || !FLAGS_cc_include_noise_view) {
                     double sum = 0;
                     sum += log(FLAGS_mm_alpha) - log(_lD - 1 + FLAGS_mm_alpha);
@@ -236,15 +260,19 @@ void SoftCrossCatMM::resample_posterior_c_for(unsigned d) {
                 itr++) {
             unsigned w = itr->first;
             unsigned count = itr->second;
-            cm[new_cdm].nw[w] += count;  // number of words in topic z equal to w
+            _cluster[m][new_cdm].nw[w] += count;  // number of words in topic z equal to w
+            _cluster_marginal[m].nw[w] += count;  // number of words in topic z equal to w
         }
-        cm[new_cdm].nwsum += total_removed_count;  // number of words in topic z
-        cm[new_cdm].ndsum += 1;  // number of words in doc d with topic z
+        _cluster[m][new_cdm].nwsum += total_removed_count;  // number of words in topic z
+        _cluster[m][new_cdm].ndsum += 1;  // number of words in doc d with topic z
 
-        CHECK_LE(cm[new_cdm].ndsum, _lD);
+        _cluster_marginal[m].nwsum += total_removed_count;  // number of words in topic z
+        _cluster_marginal[m].ndsum += 1;  // number of words in doc d with topic z
+
+        CHECK_LE(_cluster[m][new_cdm].ndsum, _lD);
 
         // Clean up for the DPSoftCrossCatMM
-        if (cm[old_cdm].ndsum == 0) {  // empty component
+        if (_cluster[m][old_cdm].ndsum == 0) {  // empty component
             // LOG(INFO) << "removing cluster " << old_zdm << " from view "  << m << " because we chose cluster " << new_zdm;
             // _c.erase(old_zdm);
             _cluster[m].erase(old_cdm);
@@ -275,23 +303,28 @@ void SoftCrossCatMM::resample_posterior_z_for(unsigned d) {
         unsigned old_cdm = _c[d][old_zdn];
 
         _cluster[old_zdn][old_cdm].remove_no_ndsum(w,d);
-        // _cluster[old_zdn][old_cdm].remove(w,d);
+        _cluster_marginal[old_zdn].remove_no_ndsum(w,d);
         
         vector<double> lp_z_dn;
         for (int m = 0; m < FLAGS_M; m++) {
-            unsigned test_cdm = _c[d][m];
-            // LOG(INFO) << test_cdm;
-            // XXX: _nd[d] is this the correct model? should we be subsetting on
-            // the stuff available in this view
-            lp_z_dn.push_back(log(_eta[w] + _cluster[m][test_cdm].nw[w]) -
-                    log(_eta_sum + _cluster[m][test_cdm].nwsum) +
-                    log(FLAGS_cc_xi + _cluster[m][test_cdm].nd[d]) -
-                    log(FLAGS_cc_xi*FLAGS_M + _nd[d]-1));
-            /*if (m == old_zdn) {
-                LOG(INFO) << "m*: " << m << " ll=" << lp_z_dn.back();
+
+            if (is_cluster_marginal) {
+                unsigned test_cdm = _c[d][m];
+                // XXX: _nd[d] is this the correct model? should we be subsetting on
+                // the stuff available in this view
+                lp_z_dn.push_back(log(_eta[w] + _cluster_marginal[m].nw[w]) -
+                        log(_eta_sum + _cluster_marginal[m].nwsum) +
+                        log(FLAGS_cc_xi + _cluster_marginal[m].nd[d]) -
+                        log(FLAGS_cc_xi*FLAGS_M + _nd[d]-1));
             } else {
-                LOG(INFO) << "m : " << m << " ll=" << lp_z_dn.back();
-            }*/
+                unsigned test_cdm = _c[d][m];
+                // XXX: _nd[d] is this the correct model? should we be subsetting on
+                // the stuff available in this view
+                lp_z_dn.push_back(log(_eta[w] + _cluster[m][test_cdm].nw[w]) -
+                        log(_eta_sum + _cluster[m][test_cdm].nwsum) +
+                        log(FLAGS_cc_xi + _cluster[m][test_cdm].nd[d]) -
+                        log(FLAGS_cc_xi*FLAGS_M + _nd[d]-1));
+            }
         }
         // XXX: other components??
     
@@ -302,7 +335,7 @@ void SoftCrossCatMM::resample_posterior_z_for(unsigned d) {
         unsigned new_cdm = _c[d][_z[d][n]];
 
         _cluster[new_zdn][new_cdm].add_no_ndsum(w,d);
-        // _cluster[new_zdn][new_cdm].add(w,d);
+        _cluster_marginal[new_zdn].add_no_ndsum(w,d);
 
         if (new_zdn == old_zdn) {
             _m_failed += 1;
@@ -376,17 +409,21 @@ string SoftCrossCatMM::current_state() {
         c_itr++) {
         unsigned m = c_itr->first;
         clustering& cm = c_itr->second;
-        cluster_sizes.push_back(StringPrintf("[%d: c: %d]" , m, cm.size()));
+        cluster_sizes.push_back(StringPrintf("[%d: c: %d f: %d]" , m, cm.size(), _cluster_marginal[m].nwsum));
     }
 
     return StringPrintf(
-            "ll = %f (%f at %d) alpha = %f eta = %f xi = %f K = %s M = %d",
+            "ll = %f (%f at %d) alpha = %f eta = %f xi = %f K = %s M = %d <cm: %d (%.3f%%)> <vm: %d (%.3f%%)>",
             _ll, _best_ll, _best_iter,
             FLAGS_mm_alpha,
             _eta_sum / (double)_eta.size(),
             FLAGS_cc_xi,
             JoinStrings(cluster_sizes, " ").c_str(),
-            FLAGS_M);
+            FLAGS_M,
+            _c_proposed-_c_failed,
+            100 - _c_failed / (double)_c_proposed*100,
+            _m_proposed-_m_failed,
+            100 - _m_failed / (double)_m_proposed*100);
 }
 
 void SoftCrossCatMM::resample_posterior() {
@@ -409,7 +446,6 @@ void SoftCrossCatMM::resample_posterior() {
     // Compute the number of documents in this cluster with actual
     // features in the game
     map<unsigned, map<unsigned, unsigned> > nonzero_docs;
-    map<unsigned, unsigned> feature_weight;
     unsigned non_zero_docs = 0;
     for (DocumentMap::iterator d_itr = _D.begin(); d_itr != _D.end(); d_itr++) {
         unsigned d = d_itr->first;  // = document number
@@ -418,7 +454,6 @@ void SoftCrossCatMM::resample_posterior() {
         for (int n = 0; n < _D[d].size(); n++) {
             unsigned w = _D[d][n];
             things_im_in[_z[d][n]][_c[d][_z[d][n]]] += 1;
-            feature_weight[_z[d][n]] += 1;
         }
 
         for (map<unsigned, map<unsigned, unsigned> >::iterator itr = things_im_in.begin();
@@ -445,15 +480,13 @@ void SoftCrossCatMM::resample_posterior() {
             c_itr != _cluster.end();
             c_itr++) { 
         unsigned m = c_itr->first;
-        clustering& cm = _cluster[m];
-
         // Summarize what features are assigned to this view
-        LOG(INFO) << "M[" << m << "] (f " << feature_weight[m] << ") ";
+        LOG(INFO) << "M[" << m << "] (f " << _cluster_marginal[m].nwsum << ") " << show_chopped_sorted_nw(_cluster_marginal[m].nw);
 
         // Show the contents of the clusters
         unsigned test_sum = 0;
-        for (clustering::iterator itr = cm.begin();
-                itr != cm.end();
+        for (clustering::iterator itr = _cluster[m].begin();
+                itr != _cluster[m].end();
                 itr++) {
             unsigned l = itr->first;
 
@@ -462,16 +495,14 @@ void SoftCrossCatMM::resample_posterior() {
             LOG(INFO) << "  C[" << l << "] (d " << nonzero_docs[m][l] << "/" << itr->second.ndsum << " nw " << itr->second.nwsum << ") " 
                       << " " << show_chopped_sorted_nw(itr->second.nw);
 
-            test_sum += cm[l].ndsum;
+            test_sum += _cluster[m][l].ndsum;
         }
         CHECK_EQ(test_sum,_lD);  // make sure we haven't lost any docs
     }
-    LOG(INFO) << _c_proposed-_c_failed << " / " << _c_proposed << " " 
-        << StringPrintf("(%.3f%%)", 100 - _c_failed / (double)_c_proposed*100) << " cluster moves.";
-    LOG(INFO) << _m_proposed-_m_failed << " / " << _m_proposed << " " 
-        << StringPrintf("(%.3f%%)", 100 - _m_failed / (double)_m_proposed*100) << " view moves.";
-
-
+    LOG(INFO) << "||| cluster moves " << _c_proposed-_c_failed << " / " << _c_proposed << " " 
+        << StringPrintf("(%.3f%%)", 100 - _c_failed / (double)_c_proposed*100)
+        << " ||| view moves " << _m_proposed-_m_failed << " / " << _m_proposed << " " 
+        << StringPrintf("(%.3f%%)", 100 - _m_failed / (double)_m_proposed*100);
 }
 
 // Write out all the data in an intermediate format

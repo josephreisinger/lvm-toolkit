@@ -22,6 +22,13 @@
 
 #include "gibbs-base.h"
 
+// Two main implementations:
+//   (1) normal: treat the topic model part for a document as the set of
+//       clusters picked out by the document (one per view)
+//   (2) marginal: treat each "topic" as the marginal over all clusters inside
+//       it; this model seems to make more sense to me
+DECLARE_string(implementation);
+
 // the number of clusterings (topics)
 DECLARE_int32(M);
 
@@ -67,6 +74,7 @@ class SoftCrossCatMM : public GibbsSampler {
         multiple_cluster_map _c; // Map [d][m] -> cluster_id
         multiple_cluster_map _z; // Map [d][n] -> view_id
         multiple_clustering _cluster;  // Map [m][z] -> chinese restaurant
+        clustering _cluster_marginal;  // Map [m] -> chinese restaurant (marginal realization of _cluster)
 
         // Base names of the flags
         string _word_features_moniker;
@@ -86,6 +94,9 @@ class SoftCrossCatMM : public GibbsSampler {
         // Count cluster moves
         unsigned _c_proposed;
         unsigned _c_failed;
+
+        // Cluster marginal model?
+        bool is_cluster_marginal;
 };
 
 #endif  // SAMPLE_SOFT_CROSSCAT_MM_H_
