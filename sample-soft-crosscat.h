@@ -67,8 +67,6 @@ class SoftCrossCatMM : public GibbsSampler {
 
         string current_state();
 
-        double compute_log_likelihood_for(unsigned m, clustering& cm);
-
     protected:
         // Maps documents to clusters
         multiple_cluster_map _c; // Map [d][m] -> cluster_id

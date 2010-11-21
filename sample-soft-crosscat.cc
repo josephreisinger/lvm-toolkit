@@ -146,12 +146,17 @@ void SoftCrossCatMM::batch_allocation() {
         if (d > 0) {
             // Can't do this guy because we'd have to fix the sample above to go
             // over map keys
-            // resample_posterior_c_for(d);
+            resample_posterior_c_for(d);
             resample_posterior_z_for(d);
         }
 
         if (d % 1000 == 0 && d > 0) {
-          LOG(INFO) << "Sorted " << d << " documents";
+            string cluster_sizes = "";
+            for (int m = 0; m < _cluster.size(); m++) {
+                cluster_sizes += StringPrintf("%d ", _cluster[m].size());
+            }
+
+            LOG(INFO) << "Sorted " << d << " documents into " << FLAGS_M << " views, sized: " << cluster_sizes;
         }
 
     }
@@ -308,18 +313,15 @@ void SoftCrossCatMM::resample_posterior_z_for(unsigned d) {
         vector<double> lp_z_dn;
         for (int m = 0; m < FLAGS_M; m++) {
 
+            unsigned test_cdm = _c[d][m];
+            // XXX: _nd[d] is this the correct model? should we be subsetting on
+            // the stuff available in this view
             if (is_cluster_marginal) {
-                unsigned test_cdm = _c[d][m];
-                // XXX: _nd[d] is this the correct model? should we be subsetting on
-                // the stuff available in this view
                 lp_z_dn.push_back(log(_eta[w] + _cluster_marginal[m].nw[w]) -
                         log(_eta_sum + _cluster_marginal[m].nwsum) +
                         log(FLAGS_cc_xi + _cluster_marginal[m].nd[d]) -
                         log(FLAGS_cc_xi*FLAGS_M + _nd[d]-1));
             } else {
-                unsigned test_cdm = _c[d][m];
-                // XXX: _nd[d] is this the correct model? should we be subsetting on
-                // the stuff available in this view
                 lp_z_dn.push_back(log(_eta[w] + _cluster[m][test_cdm].nw[w]) -
                         log(_eta_sum + _cluster[m][test_cdm].nwsum) +
                         log(FLAGS_cc_xi + _cluster[m][test_cdm].nd[d]) -
@@ -350,50 +352,62 @@ double SoftCrossCatMM::compute_log_likelihood() {
     // Compute the log likelihood for the tree
     double log_lik = 0;
 
-/*    // Compute the log likelihood of the level assignments (correctly?)
-    for (multiple_clustering::iterator c_itr = _c.begin();
-            c_itr != _c.end();
-            c_itr++) { 
-        unsigned m = c_itr->first;
-        log_lik += compute_log_likelihood_for(m, c_itr->second);
+    // TODO: is this really correct? it seems ok at least, but likelihood is
+    // usually interpreted as model likelihood or data likelihood? p(m|x) or
+    // p(x|m) it sort of doesn't matter
+    //
+    // This is p(x|m)
+    for (int d = 0; d < _D.size(); d++) {
+        google::dense_hash_map<unsigned, unsigned> collapsed_w;
+        collapsed_w.set_empty_key(kEmptyUnsignedKey);
+        // LDA part
+        for (int n = 0; n < _D[d].size(); n++) {
+            unsigned w = _D[d][n];
+            unsigned zdn = _z[d][n];
+            collapsed_w[w] += 1;
+            if (is_cluster_marginal) {
+                log_lik += log(_eta[w] + _cluster_marginal[zdn].nw[w]) -
+                        log(_eta_sum + _cluster_marginal[zdn].nwsum) +
+                        log(FLAGS_cc_xi + _cluster_marginal[zdn].nd[d]) -
+                        log(FLAGS_cc_xi*FLAGS_M + _nd[d]-1);
+            } else {
+                unsigned cdm = _c[d][zdn];
+                log_lik += log(_eta[w] + _cluster[zdn][cdm].nw[w]) -
+                        log(_eta_sum + _cluster[zdn][cdm].nwsum) +
+                        log(FLAGS_cc_xi + _cluster[zdn][cdm].nd[d]) -
+                        log(FLAGS_cc_xi*FLAGS_M + _nd[d]-1);
+            }
+        }
+        // Cluster part
+        for (multiple_clustering::iterator c_itr = _cluster.begin();
+                c_itr != _cluster.end();
+                c_itr++) { 
+            unsigned m = c_itr->first;
+            unsigned cdm = _c[d][m];
 
-        // Prior over the featurecluster assignments
-        // if (FLAGS_mm_prior == kDirichletMixture) {
-        log_lik += log(_b[m].ndsum+_xi[m]) - log(_lV+_xi_sum);
-        // } else if (FLAGS_mm_prior == kDirichletProcess) {
-        //     log_lik += log(_b[m].ndsum) - log(_lV - 1 + FLAGS_cc_xi);
-        // }
-    }*/
+            // First add in the prior over the clusters
+            log_lik += log(_cluster[m][cdm].ndsum) - log(_lD - 1 + FLAGS_mm_alpha);
 
-    return log_lik;
-}
+            // Add in the normalizer for the multinomial-dirichlet likelihood
+            log_lik += -gammaln(_eta_sum + _cluster[m][cdm].nwsum);
 
-double SoftCrossCatMM::compute_log_likelihood_for(unsigned m, clustering& cm) {
-    double log_lik = 0;
-    /*for (clustering::iterator c_itr = cm.begin();
-            c_itr != cm.end();
-            c_itr++) {
-        unsigned cluster_id = c_itr->first;
-        CRP& cluster = c_itr->second;
-
-        // Likelihood of all the words | the clustering cm in view m
-        log_lik += gammaln(_eta_sum) - gammaln(_eta_sum + cluster.nwsum);
-        for (WordToCountMap::iterator w_itr = cluster.nw.begin();
-                w_itr != cluster.nw.end();
-                w_itr++) {
-            unsigned w = w_itr->first;
-            unsigned count = w_itr->second;
-            if (_m[w] == m) {
-                log_lik += gammaln(_eta[w]+count) - gammaln(_eta[w]);
+            // Now account for the likelihood of the data (marginal posterior of
+            // DP-Mult); only need to loop over what was actually removed since
+            // other stuff (removed_w = 0) ends up canceling the two gammalns
+            for (google::dense_hash_map<unsigned,unsigned>::iterator itr = collapsed_w.begin();
+                    itr != collapsed_w.end();
+                    itr++) {
+                unsigned w = itr->first;
+                unsigned count = itr->second;
+                log_lik += gammaln(_eta[w] + _cluster[m][cdm].nw[w]);
             }
         }
 
-        // Likelihood of document in the clustering / view
-        log_lik += log(cluster.ndsum) - log(_lD - 1 + FLAGS_mm_alpha);
-    }*/
+    }
+
+
     return log_lik;
 }
-
 
 string SoftCrossCatMM::current_state() {
     _output_filename = FLAGS_mm_datafile;
