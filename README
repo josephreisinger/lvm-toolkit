@@ -1,1 +1,78 @@
-TODO
+UTML Latent Variable Modeling Toolkit
+
+  Joseph Reisinger
+  joeraii@cs.utexas.edu
+
+  ver. 0.00000...01 (alarmingly alpha)
+
+
+OVERVIEW
+
+Implements a bunch of multinomial-dirichlet latent variable models, including:
+
+  - Dirichlet Process Mixture Model
+  - Latent Dirichlet Allocation
+  - Nested Chinese Restaurant Process (hierarchical LDA)
+     * fixed-depth multinomial
+     * arbitrary depth w/ GEM sampler
+  - Labeled LDA / Fixed-Structure hLDA
+  - Tiered Clustering
+  - Cross-Cutting Categorization
+  - Soft Cross-Cutting Categorization
+  - (EXPERIMENTAL) Clustered LDA (latent word model)
+
+I'm releasing this not because we need another Topic Modeling package, but
+because it includes cross-cutting categorization and tiered clustering, neither
+of which have packages I'm aware of. Also just in case people want to try and
+duplicate my research.
+
+If you're looking to do straight up topic modeling, there are several far more
+mature, excellent packages:
+
+  - MALLET (java): http://mallet.cs.umass.edu/
+  - R LDA (R): http://cran.r-project.org/web/packages/lda/
+  - Stanford Topic Modeling Toolkit (scala): http://nlp.stanford.edu/software/tmt/tmt-0.3/
+  - LDA-C (C): http://www.cs.princeton.edu/~blei/lda-c/index.html
+
+Also if you want to just do vanilla nCRP/hLDA, Dave's code is probably more
+reliable:
+
+  - hLDA: http://www.cs.princeton.edu/~blei/downloads/hlda-c.tgz
+
+A lot of the common math/stats routines were ripped off from the samplib and
+stats source files included in Hal's Hierarchical Bayes Compiler:
+
+  - hbc: http://www.umiacs.umd.edu/~hal/HBC/
+
+
+COMPILING
+
+You're going to need several packages, freely available:
+
+   - google-logging (glog): http://code.google.com/p/google-glog/
+   - google-gflags (gflags): http://code.google.com/p/google-gflags/
+   - google-sparsehash: http://code.google.com/p/google-sparsehash/
+   - Fast Mersenne Twister (DSFMT): http://www.math.sci.hiroshima-u.ac.jp/~m-mat/MT/SFMT/
+
+Build all those and install in the normal way.
+
+Then DONT just type 'make' ; first, go look at the Makefile and check all the
+paths are right. They're not, unless you're me. Fix those. Then just type 'make'
+
+
+LICENSE
+
+   Copyright 2010 Joseph Reisinger
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+
