@@ -135,17 +135,11 @@ void SoftCrossCatMM::batch_allocation() {
 
             // Cant use ADD b/c we need to keep the ndsum consistent across the
             // views
-            // _cluster[_m[w]][zdm].add(w, d);
             _cluster[zdn][cdm].add_no_ndsum(w, d);
             _cluster_marginal[zdn].add_no_ndsum(w, d);
-            // _cluster[zdn][cdm].nw[w] += 1;
-            // _cluster[zdn][cdm].nwsum += 1;
-            // _cluster[zdn][cdm].nd[d] += 1;
         }
         
         if (d > 0) {
-            // Can't do this guy because we'd have to fix the sample above to go
-            // over map keys
             resample_posterior_c_for(d);
             resample_posterior_z_for(d);
         }
@@ -158,7 +152,6 @@ void SoftCrossCatMM::batch_allocation() {
 
             LOG(INFO) << "Sorted " << d << " documents into " << FLAGS_M << " views, sized: " << cluster_sizes;
         }
-
     }
     
     _ll = compute_log_likelihood();
@@ -356,15 +349,17 @@ double SoftCrossCatMM::compute_log_likelihood() {
     // usually interpreted as model likelihood or data likelihood? p(m|x) or
     // p(x|m) it sort of doesn't matter
     //
-    // This is p(x|m)
     for (int d = 0; d < _D.size(); d++) {
-        google::dense_hash_map<unsigned, unsigned> collapsed_w;
-        collapsed_w.set_empty_key(kEmptyUnsignedKey);
-        // LDA part
+        // google::dense_hash_map<unsigned, unsigned> collapsed_w;
+        // collapsed_w.set_empty_key(kEmptyUnsignedKey);
+
         for (int n = 0; n < _D[d].size(); n++) {
+            // LDA part
+            // This is p(z|x)
+            
             unsigned w = _D[d][n];
             unsigned zdn = _z[d][n];
-            collapsed_w[w] += 1;
+            // collapsed_w[w] += 1;
             if (is_cluster_marginal) {
                 log_lik += log(_eta[w] + _cluster_marginal[zdn].nw[w]) -
                         log(_eta_sum + _cluster_marginal[zdn].nwsum) +
@@ -377,14 +372,18 @@ double SoftCrossCatMM::compute_log_likelihood() {
                         log(FLAGS_cc_xi + _cluster[zdn][cdm].nd[d]) -
                         log(FLAGS_cc_xi*FLAGS_M + _nd[d]-1);
             }
-        }
-        // Cluster part
-        for (multiple_clustering::iterator c_itr = _cluster.begin();
-                c_itr != _cluster.end();
-                c_itr++) { 
-            unsigned m = c_itr->first;
-            unsigned cdm = _c[d][m];
 
+            // Cluster part
+            // this is p(c|x)
+            // treating token draws as fixed order (no gammaln) dunno if this is
+            // actually right
+
+            // unsigned cdm = _c[d][zdn];
+            // log_lik += log(_eta[w] + 
+
+        }
+      
+        /*
             // First add in the prior over the clusters
             log_lik += log(_cluster[m][cdm].ndsum) - log(_lD - 1 + FLAGS_mm_alpha);
 
@@ -402,9 +401,8 @@ double SoftCrossCatMM::compute_log_likelihood() {
                 log_lik += gammaln(_eta[w] + _cluster[m][cdm].nw[w]);
             }
         }
-
+        */
     }
-
 
     return log_lik;
 }
