@@ -8,7 +8,8 @@ UTML Latent Variable Modeling Toolkit
 
 OVERVIEW
 
-Implements a bunch of multinomial-dirichlet latent variable models, including:
+Implements a bunch of multinomial-dirichlet latent variable models in C++,
+including:
 
   - Dirichlet Process Mixture Model
   - Latent Dirichlet Allocation
