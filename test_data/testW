@@ -1,0 +1,20 @@
+A	a:1	b:1
+AA	a:2	b:1
+AAA	b:2
+AAAA	a:4
+AAAAA	a:1	b:1
+B	c:1	d:1
+BB	c:2	d:1
+BBB	d:2
+BBBB	c:4
+BBBBB	c:1	d:1
+C	a:1	b:1
+CC	a:2	b:1
+CCC	b:2
+CCCC	a:4
+CCCCC	a:1	b:1
+D	c:1	d:1
+DD	c:2	d:1
+DDD	d:2
+DDDD	c:4
+DDDDD	c:1	d:1

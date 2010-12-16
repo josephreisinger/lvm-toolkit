@@ -1,0 +1,8 @@
+doc_1	w1 a:1 b:2	w2 b:1 c:2	w3 b:1 b:1
+doc_2	w2 c:2	w3 b:1 c:2	w4 c:1 c:1 b:1 e:3
+doc_3	w4 d:1 b:1 d:2	w5 c:1 d:1 b:1 e:3
+doc_4	w6 dd:1 d:2	w7 dd:1 dd:1 d:2	w7 b:1 e:3
+doc_5	w1 c:1 d:2	w1 c:1 c:1 d:2	w8 b:1 e:3
+doc_6	w1 a:1 b:2	w1 b:1 dd:2	w8 b:1 b:1 a:3
+doc_7	w1 dd:2	w1 b:1 dd:2	w8 dd:1 dd:1 b:1 a:3
+doc_8	w1 d:1 b:1 d:2	w10 dd:1 d:1 b:1 a:3

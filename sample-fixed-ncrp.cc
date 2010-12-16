@@ -109,7 +109,7 @@ string GEMNCRPFixed::current_state() {
                 _maxL, _gem_m, _pi,
                 _eta_sum / (double)_eta.size(),
                 FLAGS_ncrp_z_per_iteration);
-        return StringPrintf("ll = %f (%f at %d) %d m = %f pi = %f eta = %f L = %d",
+        return StringPrintf("ll = %f (%f at %d) (%d nodes) m = %f pi = %f eta = %f L = %d",
                 _ll, _best_ll, _best_iter, _unique_nodes, _gem_m, _pi,
                 _eta_sum / (double)_eta.size(), _maxL);
     } else {
@@ -117,7 +117,7 @@ string GEMNCRPFixed::current_state() {
                 _alpha_sum / (double)_alpha.size(),
                 _eta_sum / (double)_eta.size(),
                 FLAGS_ncrp_z_per_iteration);
-        return StringPrintf("ll = %f (%f at %d) %d alpha = %f eta = %f L = %d",
+        return StringPrintf("ll = %f (%f at %d) (%d nodes) alpha = %f eta = %f L = %d",
                 _ll, _best_ll, _best_iter, _unique_nodes,
                 _alpha_sum / (double)_alpha.size(),
                 _eta_sum / (double)_eta.size(), _maxL);

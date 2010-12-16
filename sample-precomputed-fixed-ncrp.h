@@ -41,7 +41,14 @@ class NCRPPrecomputedFixed : public GEMNCRPFixed {
     public:
         NCRPPrecomputedFixed(double m, double pi) : GEMNCRPFixed(m, pi) { }
 
+        // Load the tree structure
         void load_precomputed_tree_structure(const string& filename);
+
+        // Allocate all the documents at once (called for non-streaming)
+        void batch_allocation();
+
+        // Allocate a single document; can be called during load for streaming
+        void allocate_document(unsigned d);
 
         // Write out a static dictionary required for decoding Gibbs samples
         void write_dictionary();
@@ -54,6 +61,9 @@ class NCRPPrecomputedFixed : public GEMNCRPFixed {
 
     protected:
           google::dense_hash_map<string, CRP*> _node_to_crp;
+
+          unsigned _total;  // number of total documents on load
+          unsigned _missing;  // number of missing documents on load
 };
 
 #endif  // SAMPLE_PRECOMPUTED_FIXED_NCRP_H_

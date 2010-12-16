@@ -47,15 +47,14 @@ void NCRPPrecomputedFixed::add_crp_node(const string& name) {
         _node_to_crp[name]->label = name;
         CHECK_EQ(_node_to_crp[name]->prev.size(), 0);
         VLOG(1) << "creating node [" << name << "]";
+        _unique_nodes += 1;
     }
 }
 
 void NCRPPrecomputedFixed::load_precomputed_tree_structure(const string& filename) {
     LOG(INFO) << "loading tree";
+    _unique_nodes = 0;
     _node_to_crp.set_empty_key(kEmptyStringKey);
-    _c.set_empty_key(kEmptyUnsignedKey); 
-    _z.set_empty_key(kEmptyUnsignedKey); 
-    _nd.set_empty_key(kEmptyUnsignedKey); 
 
     CHECK(!FLAGS_ncrp_skip_root);
 
@@ -94,7 +93,8 @@ void NCRPPrecomputedFixed::load_precomputed_tree_structure(const string& filenam
 
         if (_document_id.find(doc_name) != _document_id.end()) {
             // Add new nodes for each unseen topic and then build the _c vector for
-            // the document, if necessary
+            // the document, if necessary (adds a node specific to the document
+            // as well)
             for (int i = 0; i < tokens.size(); i++) {
                 add_crp_node(tokens.at(i));
             }
@@ -131,89 +131,104 @@ void NCRPPrecomputedFixed::load_precomputed_tree_structure(const string& filenam
         }
     }
 
+    VLOG(1) << "init tree done...";
+}
+
+void NCRPPrecomputedFixed::allocate_document(unsigned d) {
     // Do some sanity checking
     // Attach the words to this path
-    unsigned total = 0;
-    unsigned missing = 0;
-    for (DocumentMap::const_iterator d_itr = _D.begin(); d_itr != _D.end(); d_itr++) {
-        unsigned d = d_itr->first;
 
-        string doc_name = _document_name[d];
-        // CHECK(_node_to_crp.find(doc_name) != _node_to_crp.end())
-        //    << "missing document [" << doc_name << "] in topics file"; 
-        total += 1;
-        if(_node_to_crp.find(doc_name) == _node_to_crp.end()) {
-            VLOG(1) << "missing document [" << doc_name << "] in topics file"; 
-            missing += 1;
-            continue;
-        } 
-        // CHECK(_c[d].size() > 0);
-        //
-        _nd[d] = 0;
+    string doc_name = _document_name[d];
+    // CHECK(_node_to_crp.find(doc_name) != _node_to_crp.end())
+    //    << "missing document [" << doc_name << "] in topics file"; 
+    _total += 1;
+    if(_node_to_crp.find(doc_name) == _node_to_crp.end()) {
+        VLOG(1) << "missing document [" << doc_name << "] in topics file"; 
+        _missing += 1;
+        return;
+    } 
+    // CHECK(_c[d].size() > 0);
+    //
+    _nd[d] = 0;
 
-        // Cull out all the topics where m==1 (we're the only document
-        // referencing this topic)
-        vector <CRP*> new_topics;
-        for (int l = 0; l < _c[d].size(); l++) {
-            CHECK_GT(_c[d][l]->ndsum, 0);
-            if (_c[d][l]->ndsum == 1 && _c[d][l]->label != doc_name && FLAGS_cull_unique_topics) {
-                VLOG(1) << "culling topic [" << _c[d][l]->label << "] from document [" << doc_name << "]";
-                new_topics[0]->label += " | " + _c[d][l]->label;
-                VLOG(1) << "              [" << new_topics[0]->label << "]";
-            } else {
-                LOG(INFO) << "keeping topic [" << _c[d][l]->label << "] for document  [" << doc_name << "] size " << _c[d][l]->ndsum;
-                new_topics.push_back(_c[d][l]);
-            }
-        }
-
-        _c[d] = new_topics;
-
-        if (_c[d].empty()) {
-            LOG(INFO) << "removing document [" << doc_name << "] since no non-unique topics"; 
-            missing += 1;
-            // CHECK_GT(_c[d].size(), 0) << "failed topic check.";
-            continue;
-        }
-
-        for (int n = 0; n < _D[d].size(); n++) {
-            // CHECK_GT(_c[d].size(), 0) << "[" << _document_name[d] << "] has a zero length path";
-            unsigned w = _D[d][n];
-
-            // set a random topic assignment for this guy
-            _z[d][n] = sample_integer(_c[d].size());
-
-            // test the initialization of maps
-            CHECK(_c[d][_z[d][n]]->nw.find(w) != _c[d][_z[d][n]]->nw.end()
-                    || _c[d][_z[d][n]]->nw[w] == 0);
-            CHECK(_c[d][_z[d][n]]->nd.find(d) != _c[d][_z[d][n]]->nd.end()
-                    || _c[d][_z[d][n]]->nd[d] == 0);
-
-            _c[d][_z[d][n]]->nw[w] += 1;  // number of words in topic z equal to w
-            _c[d][_z[d][n]]->nd[d] += 1;  // number of words in doc d with topic z
-            _c[d][_z[d][n]]->nwsum += 1;  // number of words in topic z
-            _nd[d]      += 1;  // number of words in doc d
-
-            _total_words += 1;
-        }
-        // Incrementally reconstruct the tree (each time we add a document,
-        // update its tree assignment based only on the previously added
-        // documents; this results in a "fuller" initial tree, instead of one
-        // fat trunk (fat trunks cause problems for mixing)
-        if (d > 0) {
-            LOG(INFO) << "resample posterior for " << doc_name;
-            resample_posterior_z_for(d, true);
+    // Cull out all the topics where m==1 (we're the only document
+    // referencing this topic)
+    vector <CRP*> new_topics;
+    for (int l = 0; l < _c[d].size(); l++) {
+        CHECK_GT(_c[d][l]->ndsum, 0);
+        if (_c[d][l]->ndsum == 1 && _c[d][l]->label != doc_name && FLAGS_cull_unique_topics) {
+            VLOG(1) << "culling topic [" << _c[d][l]->label << "] from document [" << doc_name << "]";
+            new_topics[0]->label += " | " + _c[d][l]->label;
+            VLOG(1) << "              [" << new_topics[0]->label << "]";
+        } else {
+            LOG(INFO) << "keeping topic [" << _c[d][l]->label << "] for document  [" << doc_name << "] size " << _c[d][l]->ndsum;
+            new_topics.push_back(_c[d][l]);
         }
     }
-    LOG(INFO) << "missing " << missing << " of " << total;
+
+    _c[d] = new_topics;
+
+    if (_c[d].empty()) {
+        LOG(INFO) << "removing document [" << doc_name << "] since no non-unique topics"; 
+        _missing += 1;
+        // CHECK_GT(_c[d].size(), 0) << "failed topic check.";
+        return;
+    }
+
+    for (int n = 0; n < _D[d].size(); n++) {
+        // CHECK_GT(_c[d].size(), 0) << "[" << _document_name[d] << "] has a zero length path";
+        unsigned w = _D[d][n];
+
+        // set a random topic assignment for this guy
+        _z[d][n] = sample_integer(_c[d].size());
+
+        // test the initialization of maps
+        CHECK(_c[d][_z[d][n]]->nw.find(w) != _c[d][_z[d][n]]->nw.end()
+                || _c[d][_z[d][n]]->nw[w] == 0);
+        CHECK(_c[d][_z[d][n]]->nd.find(d) != _c[d][_z[d][n]]->nd.end()
+                || _c[d][_z[d][n]]->nd[d] == 0);
+
+        _c[d][_z[d][n]]->nw[w] += 1;  // number of words in topic z equal to w
+        _c[d][_z[d][n]]->nd[d] += 1;  // number of words in doc d with topic z
+        _c[d][_z[d][n]]->nwsum += 1;  // number of words in topic z
+        _nd[d]      += 1;  // number of words in doc d
+
+        _total_words += 1;
+    }
+    // Incrementally reconstruct the tree (each time we add a document,
+    // update its tree assignment based only on the previously added
+    // documents; this results in a "fuller" initial tree, instead of one
+    // fat trunk (fat trunks cause problems for mixing)
+    if (d > 0) {
+        LOG(INFO) << "resample posterior for " << doc_name;
+        resample_posterior_z_for(d, true);
+    }
+}
+
+void NCRPPrecomputedFixed::batch_allocation() {
+    LOG(INFO) << "Doing precomputed tree ncrp batch allocation...";
+
+    _missing = 0;
+    _total = 0;
+
+    // Load the precomputed tree structure (after we've loaded the document;
+    // before we allocate the document)
+    load_precomputed_tree_structure(FLAGS_topic_assignments_file);
+
+    // Allocate the document
+    for (DocumentMap::const_iterator d_itr = _D.begin(); d_itr != _D.end(); d_itr++) {
+        unsigned d = d_itr->first;
+        allocate_document(d);
+    }
+    LOG(INFO) << "missing " << _missing << " of " << _total;
 
     // NOTE: we need to do this in order to get the filename right...
     LOG(INFO) << "Initial state: " << current_state();
 
     VLOG(1) << "writing dictionary";
     write_dictionary();
-
-    VLOG(1) << "init done...";
 }
+
 
 // Write out a static dictionary required for decoding Gibbs samples
 void NCRPPrecomputedFixed::write_dictionary() {

@@ -25,7 +25,6 @@ int main(int argc, char **argv) {
 
     NCRPPrecomputedFixed h = NCRPPrecomputedFixed(FLAGS_gem_m, FLAGS_gem_pi);
     h.load_data(FLAGS_ncrp_datafile);
-    h.load_precomputed_tree_structure(FLAGS_topic_assignments_file);
 
     h.run();
 }

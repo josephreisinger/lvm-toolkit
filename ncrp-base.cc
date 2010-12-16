@@ -104,7 +104,7 @@ DEFINE_bool(ncrp_prix_fixe,
 // added
 NCRPBase::NCRPBase() 
     : _L(FLAGS_ncrp_depth), _gamma(FLAGS_ncrp_gamma), _reject_node(NULL) {
-    LOG(INFO) << "initialize";
+    LOG(INFO) << "initialize ncrp_base";
 
     // Initialize the per-topic dirichlet parameters
     // NOTE: in reality this would actually have to be /per topic/ as in one
@@ -135,6 +135,8 @@ NCRPBase::NCRPBase()
 
 void NCRPBase::batch_allocation() {
     LOG(INFO) << "Doing batch allocation...";
+
+
     for (DocumentMap::const_iterator d_itr = _D.begin(); d_itr != _D.end(); d_itr++) {
         unsigned d = d_itr->first;
         allocate_document(d);
