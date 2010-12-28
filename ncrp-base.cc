@@ -123,6 +123,7 @@ NCRPBase::NCRPBase()
         current->tables.push_back(new CRP(l, 0, current));
         current = current->tables[0];
     }
+    _unique_nodes = _L;
 
     // For each document, allocate a topic path for it there are several ways to
     // do this, e.g. a single linear chain, incremental conditional sampling and

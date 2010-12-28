@@ -26,6 +26,13 @@ class FixedDepthNCRP : public NCRPBase {
         ~FixedDepthNCRP() { /* TODO: free memory! */ }
 
         string current_state();
+
+        // Write out the LDA assignments directly into a docify, like this:
+        //   DOC w1:c1:t1 w2:c2:t2 ...
+        // where w1:c1 is the standard format, and t1,t2 are topic indicators;
+        // thus we'd be storing the model state with the data; can then use this
+        // information to restore the model state
+        void write_annotated_docify(string file);
     private:
         void resample_posterior();
         void resample_posterior_z_for(unsigned d, bool remove);
