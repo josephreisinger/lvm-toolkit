@@ -62,6 +62,12 @@
 using namespace std;
 using namespace google::protobuf;
 
+// For vanilla LDA, we can save the state of the model directly in the raw
+// docify, using an extra : for each term denoting the topic assignment. This
+// allows us to do some fancy things like checkpoint and update documents on the
+// fly.
+DECLARE_int32(preassigned_topics);
+
 // Streaming makes some major structural changes to the code, moving the main loop into load_data;
 // This variable sets how many documents should be kept in memory at any one time
 DECLARE_int32(streaming);
@@ -255,6 +261,8 @@ class GibbsSampler {
             _document_name.set_empty_key(kEmptyUnsignedKey); 
             _document_id.set_empty_key(kEmptyStringKey);
             _nd.set_empty_key(kEmptyUnsignedKey);
+            _initial_topic_assignment.set_empty_key(kEmptyUnsignedKey);
+            _initial_topic_assignment.set_deleted_key(kDeletedUnsignedKey);
         }
         virtual ~GibbsSampler() { /* TODO: free memory! */ }
 
@@ -314,6 +322,7 @@ class GibbsSampler {
         google::dense_hash_map<string, unsigned> _word_name_to_id;
 
         DocumentMap _D;  // documents indexed by unique #
+        DocumentMap _initial_topic_assignment;  // initial term-topic assignment when FLAGS_preassigned_topics=1
 
         DocIDToTitle _document_name;  // doc_number to title
         TitleToDocID _document_id;

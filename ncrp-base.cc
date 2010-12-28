@@ -74,6 +74,7 @@ DEFINE_bool(ncrp_m_dependent_gamma,
 // This places an (artificial) cap on the number of branches possible from each
 // node, reducing the width of the tree, but sacrificing the generative
 // semantics of the model. -1 is the default for no capping.
+// ncrp_max_branches=1 can be used to simulate vanilla LDA
 DEFINE_int32(ncrp_max_branches,
              -1,
               "maximum number of branches from any node");
@@ -105,6 +106,9 @@ DEFINE_bool(ncrp_prix_fixe,
 NCRPBase::NCRPBase() 
     : _L(FLAGS_ncrp_depth), _gamma(FLAGS_ncrp_gamma), _reject_node(NULL) {
     LOG(INFO) << "initialize ncrp_base";
+
+    // Have to have max_branches=1 if we preassign topics (for now)
+    CHECK(!(FLAGS_preassigned_topics && FLAGS_ncrp_max_branches > 1));
 
     // Initialize the per-topic dirichlet parameters
     // NOTE: in reality this would actually have to be /per topic/ as in one
