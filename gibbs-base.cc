@@ -198,7 +198,7 @@ void GibbsSampler::process_document_line(const string& curr_line, unsigned line_
         int freq = atoi(word_tokens.back().c_str());
         word_tokens.pop_back();
 
-        if (FLAGS_preassigned_topics) {
+        if (FLAGS_preassigned_topics == 1) {
             topic = atoi(word_tokens.back().c_str());
             word_tokens.pop_back();
             CHECK_EQ(freq, 1);  // Each term gets a unique assignment

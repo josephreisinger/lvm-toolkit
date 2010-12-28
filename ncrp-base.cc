@@ -107,8 +107,12 @@ NCRPBase::NCRPBase()
     : _L(FLAGS_ncrp_depth), _gamma(FLAGS_ncrp_gamma), _reject_node(NULL) {
     LOG(INFO) << "initialize ncrp_base";
 
+    // Not sure if streaming still actually works at this point; will probably
+    // try to back it out
+    CHECK(!FLAGS_streaming);
+
     // Have to have max_branches=1 if we preassign topics (for now)
-    CHECK(!(FLAGS_preassigned_topics && FLAGS_ncrp_max_branches > 1));
+    CHECK(!(FLAGS_preassigned_topics == 1 && FLAGS_ncrp_max_branches > 1));
 
     // Initialize the per-topic dirichlet parameters
     // NOTE: in reality this would actually have to be /per topic/ as in one
@@ -141,7 +145,6 @@ NCRPBase::NCRPBase()
 void NCRPBase::batch_allocation() {
     LOG(INFO) << "Doing batch allocation...";
 
-
     for (DocumentMap::const_iterator d_itr = _D.begin(); d_itr != _D.end(); d_itr++) {
         unsigned d = d_itr->first;
         allocate_document(d);
@@ -166,13 +169,18 @@ void NCRPBase::allocate_document(unsigned d) {
     // update its tree assignment based only on the previously added
     // documents; this results in a "fuller" initial tree, instead of one
     // fat trunk (fat trunks cause problems for mixing)
-    if (d == 0) {
+    if (d == 0 || FLAGS_preassigned_topics == 1) {
         // Initial uniform random level assignments
         for (int n = 0; n < _D[d].size(); n++) {
             unsigned w = _D[d][n];
 
             // set a random topic assignment for this guy
-            _z[d][n] = FLAGS_ncrp_skip_root ? sample_integer(_L-1)+1 : sample_integer(_L);
+            if (FLAGS_preassigned_topics == 1) {
+                _z[d][n] = _initial_topic_assignment[d][n];
+                CHECK_LT(_z[d][n], _L);
+            } else {
+                _z[d][n] = FLAGS_ncrp_skip_root ? sample_integer(_L-1)+1 : sample_integer(_L);
+            }
 
             // test the initialization of maps
             CHECK(_c[d][_z[d][n]]->nw.find(w) != _c[d][_z[d][n]]->nw.end()
@@ -458,13 +466,28 @@ void NCRPBase::graft_path_at(CRP* node, vector<CRP*>* chain, unsigned depth) {
 
 // Write out all the data in an intermediate format
 void NCRPBase::write_data(string prefix) {
-    // File* f = File::OpenOrDie(filename, "w");
-    // RecordWriter f (file);   // Create RecordWriter on the file.
+    // Write out the annotated docify (if possible
+    if (FLAGS_ncrp_max_branches == 1) {
+        string filename = StringPrintf("%s-%d-%s.annotated_docify", get_base_name(_filename).c_str(), FLAGS_random_seed,
+                prefix.c_str());
 
-    // f->Write(string("digraph G {\n"));
+        ofstream f(filename.c_str(), ios_base::out | ios_base::binary);
 
-    // Close the file, checking error code.
-    // CHECK(f->Close());
+        // f << current_state() << endl;
+
+
+        for (DocumentMap::const_iterator d_itr = _D.begin(); d_itr != _D.end(); d_itr++) {
+            unsigned d = d_itr->first;
+            f << _document_name[d];
+            for (int n = 0; n < _D[d].size(); n++) {
+                unsigned w = _D[d][n];
+                f << "\t" << _word_id_to_name[w] << ":1:" << _z[d][n];
+            }
+            f << endl;
+        }
+    }
+
+    // Write out the normal hlda //////////////////////////////////////////////
     string filename = StringPrintf("%s-%d-%s.hlda", get_base_name(_filename).c_str(), FLAGS_random_seed,
             prefix.c_str());
 
