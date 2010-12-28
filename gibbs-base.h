@@ -252,6 +252,8 @@ class GibbsSampler {
             _best_ll = 0;
             _best_iter = 0;
 
+            _eta_sum = 0;
+
             _converged_iterations = 0;
 
             _D.set_empty_key(kEmptyUnsignedKey);

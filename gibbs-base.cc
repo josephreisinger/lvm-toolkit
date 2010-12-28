@@ -195,14 +195,20 @@ void GibbsSampler::process_document_line(const string& curr_line, unsigned line_
         SplitStringUsing(words.at(i), ":", &word_tokens);
 
         int topic;
-        int freq = atoi(word_tokens.back().c_str());
-        word_tokens.pop_back();
-
+        int freq;
+        
         if (FLAGS_preassigned_topics == 1) {
             topic = atoi(word_tokens.back().c_str());
             word_tokens.pop_back();
+        }
+        
+        freq = atoi(word_tokens.back().c_str());
+        word_tokens.pop_back();
+
+        if (FLAGS_preassigned_topics == 1) {
             CHECK_EQ(freq, 1);  // Each term gets a unique assignment
         }
+
 
         string word = JoinStrings(word_tokens, ":");
 
@@ -229,6 +235,9 @@ void GibbsSampler::process_document_line(const string& curr_line, unsigned line_
 
     _lD = _D.size();
     _lV = _V.size();
+
+    // Make sure eta is in a reasonable range
+    CHECK_LT(_eta_sum, 1000000);
 
     if (FLAGS_streaming > 0) {
         streaming_step(line_no);
