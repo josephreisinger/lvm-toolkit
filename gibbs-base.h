@@ -248,6 +248,8 @@ class GibbsSampler {
 
             _converged_iterations = 0;
 
+            _eta_sum = 0;  // fix a particularly nasty bug
+
             _D.set_empty_key(kEmptyUnsignedKey);
             _D.set_deleted_key(kDeletedUnsignedKey);
             _word_name_to_id.set_empty_key(kEmptyStringKey);
