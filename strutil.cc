@@ -37,6 +37,10 @@
 #include <assert.h>
 #include <glog/logging.h>
 
+#include <stdarg.h>
+#include <stdio.h>
+#include <stdlib.h>
+
 #include "strutil.h"
 
 #ifdef _WIN32
