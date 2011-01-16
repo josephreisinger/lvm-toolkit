@@ -1,8 +1,10 @@
 # XXXXXXXXXX this has to change for 64/32
 #INCLUDES = -I include/ -I /projects/nn/joeraii/local_libraries_mastodon/include/
-INCLUDES = -I include/ -I /projects/nn/joeraii/local_libraries/include/
+# INCLUDES = -I include/ -I /projects/nn/joeraii/local_libraries/include/
+INCLUDES = -I include/ -I /scratch/cluster/joeraii/ncrp/local_libraries/include/
 CC = g++
-LDFLAGS = -L/p/lib -L/projects/nn/joeraii/local_libraries_mastodon/lib/ -L/projects/nn/joeraii/local_libraries/lib/ -L/p/lib/
+# LDFLAGS = -L/p/lib -L/projects/nn/joeraii/local_libraries_mastodon/lib/ -L/projects/nn/joeraii/local_libraries/lib/ -L/p/lib/
+LDFLAGS = -L/p/lib -L/scratch/cluster/joeraii/ncrp/local_libraries/lib/ -L/p/lib/
 LIBRARIES = -lglog -lgflags -lpthread
 EXECUTABLES = sampleSoftCrossCatMixtureModel sampleMultNCRP sampleGEMNCRP sampleFixedNCRP samplePrecomputedFixedNCRP sampleClusteredLDA sampleMixtureModel sampleCrossCatMixtureModel
 OBJECTS = dSFMT.o strutil.o gibbs-base.o ncrp-base.o sample-clustered-lda.o sample-precomputed-fixed-ncrp.o sample-fixed-ncrp.o sample-gem-ncrp.o sample-mult-ncrp.o sample-crosscat-mm.o  sample-soft-crosscat.o

@@ -372,36 +372,41 @@ double SoftCrossCatMM::compute_log_likelihood() {
                         log(FLAGS_cc_xi + _cluster[zdn][cdm].nd[d]) -
                         log(FLAGS_cc_xi*FLAGS_M + _nd[d]-1);
             }
-
-            // Cluster part
-            // this is p(c|x)
-            // treating token draws as fixed order (no gammaln) dunno if this is
-            // actually right
-
-            // unsigned cdm = _c[d][zdn];
-            // log_lik += log(_eta[w] + 
-
         }
-      
-        /*
-            // First add in the prior over the clusters
-            log_lik += log(_cluster[m][cdm].ndsum) - log(_lD - 1 + FLAGS_mm_alpha);
 
+        // Cluster part
+        // This document's likelihood in each clustering
+        for (int m = 0; m < FLAGS_M; m++) {
+            unsigned l = _c[d][m];
+
+
+            // Count what part of this document is assigned to this view
+            unsigned total_removed_count = 0;
+            google::dense_hash_map<unsigned, unsigned> removed_w;
+            removed_w.set_empty_key(kEmptyUnsignedKey);
+        
+            for (int n = 0; n < _D[d].size(); n++) {
+                if (_z[d][n] == m) {
+                    unsigned w = _D[d][n];
+                    total_removed_count += 1;
+                    removed_w[w] += 1;
+                }
+            }
+            
             // Add in the normalizer for the multinomial-dirichlet likelihood
-            log_lik += -gammaln(_eta_sum + _cluster[m][cdm].nwsum);
+            log_lik += gammaln(_eta_sum + _cluster[m][l].nwsum) - gammaln(_eta_sum + _cluster[m][l].nwsum + total_removed_count);
 
             // Now account for the likelihood of the data (marginal posterior of
             // DP-Mult); only need to loop over what was actually removed since
             // other stuff (removed_w = 0) ends up canceling the two gammalns
-            for (google::dense_hash_map<unsigned,unsigned>::iterator itr = collapsed_w.begin();
-                    itr != collapsed_w.end();
+            for (google::dense_hash_map<unsigned,unsigned>::iterator itr = removed_w.begin();
+                    itr != removed_w.end();
                     itr++) {
                 unsigned w = itr->first;
                 unsigned count = itr->second;
-                log_lik += gammaln(_eta[w] + _cluster[m][cdm].nw[w]);
+                log_lik += gammaln(_eta[w] + count + _cluster[m][l].nw[w]) - gammaln(_eta[w] + _cluster[m][l].nw[w]);
             }
         }
-        */
     }
 
     return log_lik;
