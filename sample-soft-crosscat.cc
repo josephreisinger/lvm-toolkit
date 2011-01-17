@@ -364,6 +364,7 @@ void SoftCrossCatMM::resample_posterior_z_for(unsigned d) {
 double SoftCrossCatMM::compute_log_likelihood() {
     // Compute the log likelihood for the tree
     double log_lik = 0;
+    /*
 
     // TODO: is this really correct? it seems ok at least, but likelihood is
     // usually interpreted as model likelihood or data likelihood? p(m|x) or
@@ -381,16 +382,20 @@ double SoftCrossCatMM::compute_log_likelihood() {
             unsigned zdn = _z[d][n];
             // collapsed_w[w] += 1;
             if (is_cluster_marginal) {
-                log_lik += log(_eta[w] + _cluster_marginal[zdn].nw[w]) -
-                        log(_eta_sum + _cluster_marginal[zdn].nwsum) +
-                        log(FLAGS_cc_xi + _cluster_marginal[zdn].nd[d]) -
-                        log(FLAGS_cc_xi*FLAGS_M + _nd[d]-1);
+                // log_lik += log(_eta[w] + _cluster_marginal[zdn].nw[w]) -
+                //         log(_eta_sum + _cluster_marginal[zdn].nwsum) +
+                //         log(FLAGS_cc_xi + _cluster_marginal[zdn].nd[d]) -
+                //         log(FLAGS_cc_xi*FLAGS_M + _nd[d]-1);
+                log_lik += log(FLAGS_cc_xi + _cluster_marginal[zdn].nd[d]) -
+                           log(FLAGS_cc_xi*FLAGS_M + _nd[d]-1);
             } else {
                 unsigned cdm = _c[d][zdn];
-                log_lik += log(_eta[w] + _cluster[zdn][cdm].nw[w]) -
-                        log(_eta_sum + _cluster[zdn][cdm].nwsum) +
-                        log(FLAGS_cc_xi + _cluster[zdn][cdm].nd[d]) -
-                        log(FLAGS_cc_xi*FLAGS_M + _nd[d]-1);
+                // log_lik += log(_eta[w] + _cluster[zdn][cdm].nw[w]) -
+                //         log(_eta_sum + _cluster[zdn][cdm].nwsum) +
+                //         log(FLAGS_cc_xi + _cluster[zdn][cdm].nd[d]) -
+                //         log(FLAGS_cc_xi*FLAGS_M + _nd[d]-1);
+                log_lik += log(FLAGS_cc_xi + _cluster[zdn][cdm].nd[d]) -
+                           log(FLAGS_cc_xi*FLAGS_M + _nd[d]-1);
             }
 
             // Cluster part
@@ -400,6 +405,19 @@ double SoftCrossCatMM::compute_log_likelihood() {
         }
             
     }
+    */
+
+    // HACK: ll is just sum of moved percentages
+    
+    double cluster_move_p = 0;
+    if (_c_proposed > 0) {
+        cluster_move_p = 100 - _c_failed / (double)_c_proposed*100;
+    }
+    double view_move_p = 0;
+    if (_m_proposed > 0) {
+        view_move_p = 100 - _m_failed / (double)_m_proposed*100;
+    }
+    log_lik = -cluster_move_p - view_move_p;
 
     return log_lik;
 }
