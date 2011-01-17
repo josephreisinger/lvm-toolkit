@@ -72,6 +72,7 @@ const string kNormalModel = "normal";
 const string kMarginalModel = "marginal";
 
 void SoftCrossCatMM::clean_initialization() {
+    _iter = _best_iter = 0;
     // Keep track of the number of clusters in each view
     _current_component.clear();
     _current_component.resize(FLAGS_M);
@@ -391,41 +392,13 @@ double SoftCrossCatMM::compute_log_likelihood() {
                         log(FLAGS_cc_xi + _cluster[zdn][cdm].nd[d]) -
                         log(FLAGS_cc_xi*FLAGS_M + _nd[d]-1);
             }
+
+            // Cluster part
+            unsigned l = _c[d][zdn];
+            log_lik += gammaln(_eta[w] + _cluster[zdn][l].nw[w])
+                       - gammaln(_eta_sum + _cluster[zdn][l].nwsum);
         }
-
-        // Cluster part
-        // This document's likelihood in each clustering
-        for (int m = 0; m < FLAGS_M; m++) {
-            unsigned l = _c[d][m];
-
-
-            // Count what part of this document is assigned to this view
-            unsigned total_removed_count = 0;
-            google::dense_hash_map<unsigned, unsigned> removed_w;
-            removed_w.set_empty_key(kEmptyUnsignedKey);
-        
-            for (int n = 0; n < _D[d].size(); n++) {
-                if (_z[d][n] == m) {
-                    unsigned w = _D[d][n];
-                    total_removed_count += 1;
-                    removed_w[w] += 1;
-                }
-            }
             
-            // Add in the normalizer for the multinomial-dirichlet likelihood
-            log_lik += gammaln(_eta_sum + _cluster[m][l].nwsum) - gammaln(_eta_sum + _cluster[m][l].nwsum + total_removed_count);
-
-            // Now account for the likelihood of the data (marginal posterior of
-            // DP-Mult); only need to loop over what was actually removed since
-            // other stuff (removed_w = 0) ends up canceling the two gammalns
-            for (google::dense_hash_map<unsigned,unsigned>::iterator itr = removed_w.begin();
-                    itr != removed_w.end();
-                    itr++) {
-                unsigned w = itr->first;
-                unsigned count = itr->second;
-                log_lik += gammaln(_eta[w] + count + _cluster[m][l].nw[w]) - gammaln(_eta[w] + _cluster[m][l].nw[w]);
-            }
-        }
     }
 
     return log_lik;
@@ -555,7 +528,7 @@ void SoftCrossCatMM::write_data(string prefix) {
     // f = get_bz2_ostream(filename);
 
     f << current_state() << endl;
-    f << _iter << " " << _best_iter << endl;
+    f << _iter << "\t" << _best_iter << "\t" << _best_ll << endl;
 
     // Write out how each document gets clustered in each view.
     for (int d = 0; d < _D.size(); d++) {
@@ -579,6 +552,7 @@ void SoftCrossCatMM::write_data(string prefix) {
 
 // Restore from the intermediate model
 bool SoftCrossCatMM::restore_data(string prefix) {
+    current_state();   // HACK
     bool finished = false;
     string filename = StringPrintf("%s-%d-%s.hlda", get_base_name(_output_filename).c_str(),
             FLAGS_random_seed, prefix.c_str());
@@ -595,15 +569,32 @@ bool SoftCrossCatMM::restore_data(string prefix) {
         ifstream f(filename.c_str(), ios_base::in | ios_base::binary);
 
         string curr_line;
-        f >> curr_line;  // deal with the header
-        f >> _iter >> _best_iter;
+        getline(input_file, curr_line);
+        getline(input_file, curr_line);
+        vector<string> tokens;
+        SplitStringUsing(StringReplace(curr_line, "\n", "", true), "\t", &tokens);
+        CHECK_EQ(tokens.size(), 3);
+        _iter = atoi(tokens.at(0).c_str()) + 1;
+        _best_iter = atoi(tokens.at(1).c_str());
+        _best_ll = atof(tokens.at(2).c_str());
 
         while (true) {
             getline(input_file, curr_line);
 
-            if (curr_line == "END\n") {
-                LOG(INFO) << "read correctly!";
+            if (curr_line == "END") {
+                LOG(INFO) << "read correctly, resuming from iter=" << _iter;
                 finished = true;
+
+                // Add the documents into the clustering
+                for (DocumentMap::iterator d_itr = _D.begin(); d_itr != _D.end(); d_itr++) {
+                    unsigned d = d_itr->first;  // = document number
+
+                    // set a random topic/crosscut view assignment for this document
+                    for (int m = 0; m < FLAGS_M; m++) {
+                        _cluster[m][_c[d][m]].ndsum += 1; // Can't use ADD b/c we need to maintain ndsum over all the views
+                        _cluster_marginal[m].ndsum += 1; // Can't use ADD b/c we need to maintain ndsum over all the views
+                    }
+                }
                 break;
             }
             if (input_file.eof()) {
@@ -612,6 +603,7 @@ bool SoftCrossCatMM::restore_data(string prefix) {
 
             vector<string> tokens;
             SplitStringUsing(StringReplace(curr_line, "\n", "", true), "\t", &tokens);
+            CHECK_EQ(tokens.size(), 4);
             unsigned d = atoi(tokens.at(0).c_str());
             unsigned n = atoi(tokens.at(1).c_str());
             unsigned cdm = atoi(tokens.at(2).c_str());
@@ -622,12 +614,6 @@ bool SoftCrossCatMM::restore_data(string prefix) {
 
             if (cdm >= _current_component[zdn]) {
                 _current_component[zdn] = cdm + 1;
-            }
-
-            // set a random topic/crosscut view assignment for this document
-            for (int m = 0; m < FLAGS_M; m++) {
-                _cluster[m][cdm].ndsum += 1; // Can't use ADD b/c we need to maintain ndsum over all the views
-                _cluster_marginal[m].ndsum += 1; // Can't use ADD b/c we need to maintain ndsum over all the views
             }
 
             // Cant use ADD b/c we need to keep the ndsum consistent across the
