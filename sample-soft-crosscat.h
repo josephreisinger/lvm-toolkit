@@ -47,6 +47,9 @@ DECLARE_string(mm_datafile);
 // If toggled, the first view will be constrained to a single cluster
 DECLARE_bool(cc_include_noise_view);
 
+// If toggled, will resume from the best model written so far
+DECLARE_bool(cc_resume_from_best);
+
 // Implements several kinds of mixture models (uniform prior, Dirichlet prior,
 // DPCrossCatMM all with DP-Multinomial likelihood.
 class SoftCrossCatMM : public GibbsSampler {
@@ -55,10 +58,16 @@ class SoftCrossCatMM : public GibbsSampler {
 
         // Allocate all the documents at once (called for non-streaming)
         void batch_allocation();
+
+        // Initialize the model cleanly
+        void clean_initialization();
         
         double compute_log_likelihood();
 
         void write_data(string prefix);
+
+        // Restore from the intermediate model
+        bool restore_data(string prefix);
     protected:
         void resample_posterior();
         void resample_posterior_c_for(unsigned d);
