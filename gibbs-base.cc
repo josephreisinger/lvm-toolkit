@@ -149,6 +149,7 @@ void GibbsSampler::run() {
 
         if (sample_and_check_for_convergence()) {
             LOG(INFO) << "CONVERGED!";
+            write_data("converged");
             break;
         }
     }

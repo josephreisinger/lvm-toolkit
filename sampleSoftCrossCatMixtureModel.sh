@@ -52,4 +52,5 @@ python $CONDORIZER $BINARY \
  --implementation=$IMPLEMENTATION \
  --cc_include_noise_view=$NOISE \
  --convergence_interval=$CONVERGENCE \
+ --cc_resume_from_best=true \
  out
