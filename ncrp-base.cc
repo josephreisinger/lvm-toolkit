@@ -329,7 +329,7 @@ void NCRPBase::calculate_path_probabilities_for_subtree(
 
             // compute the probability of getting to this node
             if (FLAGS_ncrp_m_dependent_gamma) {
-                current->lp = log(current->ndsum) - log(_gamma * (current->prev[0]->ndsum + 1) - 1) + current->prev[0]->lp;
+                current->lp = log(current->ndsum) - log((_gamma + 1) * current->prev[0]->ndsum - 1) + current->prev[0]->lp;
             } else {
                 current->lp = log(current->ndsum) - log(_gamma + current->prev[0]->ndsum - 1) + current->prev[0]->lp;
             }
@@ -365,11 +365,12 @@ void NCRPBase::calculate_path_probabilities_for_subtree(
                     && (FLAGS_ncrp_max_branches == -1 || current->tables.size() < FLAGS_ncrp_max_branches)) {
                 // Add the probability of escaping from this node (new branch)
 
-                // Base log-probability of getting here plus taking the new
-                // table
+                // Base log-probability of getting here plus taking the new table
                 double prob = 0;
                 if (FLAGS_ncrp_m_dependent_gamma) {
-                    prob = current->lp + log(_gamma * current->ndsum) - log(_gamma + current->ndsum - 1);
+                    // NOTE before this was:
+                    // prob = current->lp + log(_gamma * current->ndsum) - log(_gamma + current->ndsum - 1);
+                    prob = current->lp + log(_gamma * current->ndsum) - log((_gamma+1) * current->ndsum - 1);
                 } else {
                     prob = current->lp + log(_gamma) - log(_gamma + current->ndsum - 1);
                 }
