@@ -67,12 +67,30 @@ RUNNING
 To see stdout from the various models you need GLOG_logtostderr=1 set in your
 environment. Here are some example invocations:
 
-    GLOG_logtostderr=1 ./sampleSoftCrossCatMixtureModel \ 
-                           --mm_alpha=1.0 \ 
-                           --eta=1.0 \
-                           --mm_datafile=data.txt \
-                           --M=2 \ 
-                           --implementation=marginal 
+    (ncrp w/ depth 5 and depth-dependent eta scaling)
+
+        GLOG_logtostderr=1 ./sampleMultNCRP \
+                         --mm_datafile=data.txt \
+                         --ncrp_depth=5 \
+                         --ncrp_eta_depth_scale=0.5
+
+
+    (lda w/ 50 topics)
+
+        GLOG_logtostderr=1 ./sampleMultNCRP \
+                         --mm_datafile=data.txt \
+                         --ncrp_depth=50 \
+                         --ncrp_max_branches=1
+
+
+    (soft cross-cat)
+
+        GLOG_logtostderr=1 ./sampleSoftCrossCatMixtureModel \ 
+                               --mm_alpha=1.0 \ 
+                               --eta=1.0 \
+                               --mm_datafile=data.txt \
+                               --M=2 \ 
+                               --implementation=marginal 
 
 All the scripts can be called with --help to list the various flags.
 
