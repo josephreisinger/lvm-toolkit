@@ -170,9 +170,10 @@ double FixedDepthNCRP::compute_log_likelihood() {
 
 string FixedDepthNCRP::current_state() {
   _filename = FLAGS_ncrp_datafile;
-  _filename += StringPrintf("-L%d-gamma%f-alpha%f-eta%f-zpi%d-best.data",
+  _filename += StringPrintf("-L%d-gamma%.2f-alpha%.2f-eta%.2f-eds%.2f-zpi%d-best.data",
                             _L, _gamma, _alpha_sum / (double)_alpha.size(),
                             _eta_sum / (double)_eta.size(),
+                            FLAGS_ncrp_eta_depth_scale,
                             FLAGS_ncrp_z_per_iteration);
 
   return StringPrintf(

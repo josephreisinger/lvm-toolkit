@@ -98,6 +98,12 @@ DEFINE_bool(ncrp_prix_fixe,
             false,
             "implements prix-fixe clustering with L-1 noise topics");
 
+// Eta depth scale: multiply eta by eta_depth_scale**depth for nodes at that
+// depth; essentially eta_depth_scale=0.5 will lead to more mass at higher
+// nodes, as opposed to leaves
+DEFINE_double(ncrp_eta_depth_scale,
+              1.0,
+              "scale eta by eta_depth_scale**depth in ncrp");
 
 // Initialize the NCRPBase tree by adding each document (set of attributes)
 // incrementaly, resampling level (tree) assignments after each document is
@@ -337,18 +343,24 @@ void NCRPBase::calculate_path_probabilities_for_subtree(
             current->lp = 0;
         }
 
+        // Rescale eta dependening on depth
+        double eta_depth_scale = 1.0;
+        if (FLAGS_ncrp_eta_depth_scale < 1.0) {
+            eta_depth_scale = pow(FLAGS_ncrp_eta_depth_scale, current->level);
+            // LOG(INFO) << "scaling eta at level " << current->level;
+        }
+
         // multiply in the data likelihood for this level
         // Compute a single level's contribution to the log data likelihood
-        current->lp += gammaln(current->nwsum + _eta_sum)
-            - gammaln(current->nwsum + nwsum_removed[current->level]
-                    + _eta_sum);
+        current->lp += gammaln(current->nwsum + _eta_sum*eta_depth_scale)
+            - gammaln(current->nwsum + nwsum_removed[current->level] + _eta_sum*eta_depth_scale);
 
         // We don't care about the terms here where nw_removed is zero, since
         // they cancel out.
         for (WordToCountMap::iterator itr = nw_removed[current->level].begin(); itr != nw_removed[current->level].end(); itr++) {
             unsigned w = itr->first;  // the word
             unsigned count = itr->second;
-            current->lp += gammaln(current->nw[w] + count + _eta[w]) - gammaln(current->nw[w] + _eta[w]);
+            current->lp += gammaln(current->nw[w] + count + _eta[w]*eta_depth_scale) - gammaln(current->nw[w] + _eta[w]*eta_depth_scale);
         }
 
         // Now the rest of the vocabulary is accounted for, since
@@ -379,7 +391,13 @@ void NCRPBase::calculate_path_probabilities_for_subtree(
                 // Add in the log-data-likelihood all the way down the new chain
                 // taking into account this document's current chain length
                 for (int l = current->level+1; l < _c[d].size(); l++) {
-                    prob += gammaln(_eta_sum) - gammaln(nwsum_removed[l] + _eta_sum);
+                    // Rescale eta dependening on depth
+                    double l_eta_depth_scale = 1.0;
+                    if (FLAGS_ncrp_eta_depth_scale < 1.0) {
+                        l_eta_depth_scale = pow(FLAGS_ncrp_eta_depth_scale, l);
+                        // LOG(INFO) << "scaling l_eta at level " << l;
+                    }
+                    prob += gammaln(_eta_sum*l_eta_depth_scale) - gammaln(nwsum_removed[l] + _eta_sum*l_eta_depth_scale);
 
                     int total_removed = 0;
 
@@ -388,7 +406,7 @@ void NCRPBase::calculate_path_probabilities_for_subtree(
                     for (WordToCountMap::iterator itr = nw_removed[l].begin(); itr != nw_removed[l].end(); itr++) {
                         // itr->first = word
                         // itr->second = count
-                        prob += gammaln(itr->second + _eta[itr->first]) - gammaln(_eta[itr->first]);
+                        prob += gammaln(itr->second + _eta[itr->first]*l_eta_depth_scale) - gammaln(_eta[itr->first]*l_eta_depth_scale);
                         total_removed += itr->second;
                     }
                     CHECK_EQ(total_removed, nwsum_removed[l]);
@@ -454,13 +472,6 @@ void NCRPBase::graft_path_at(CRP* node, vector<CRP*>* chain, unsigned depth) {
 
 // Write out all the data in an intermediate format
 void NCRPBase::write_data(string prefix) {
-    // File* f = File::OpenOrDie(filename, "w");
-    // RecordWriter f (file);   // Create RecordWriter on the file.
-
-    // f->Write(string("digraph G {\n"));
-
-    // Close the file, checking error code.
-    // CHECK(f->Close());
     string filename = StringPrintf("%s-%d-%s.hlda", get_base_name(_filename).c_str(), FLAGS_random_seed,
             prefix.c_str());
 
@@ -619,11 +630,10 @@ void  NCRPBase::print_summary() {
 
         string buffer = show_chopped_sorted_nw(current->nw);
         if (current->level != _L-1) {
-            // Convert the ublas vector into a vector of pairs for sorting
-            LOG(INFO) << "N[" << current->level << "] (" << StringPrintf("%.3f\%", current->nwsum / (double)_total_word_count)  
+            LOG(INFO) << "N[depth=" << current->level << "] (docs=" << current->ndsum << ") (%w=" << StringPrintf("%.3f\%", current->nwsum / (double)_total_word_count)  
                 << ") " << " " << buffer;
         } else {
-            LOG(INFO) << "C[" << l << "] (" << current->ndsum << ") " << " " << buffer;
+            LOG(INFO) << "L[" << l << "] (docs=" << current->ndsum << ") " << " " << buffer;
             l += 1;
         }
 

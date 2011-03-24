@@ -112,6 +112,11 @@ DECLARE_bool(ncrp_skip_root);
 // implementation of prix-fixe with more than one noise.
 DECLARE_bool(ncrp_prix_fixe);
 
+// Eta depth scale: multiply eta by eta_depth_scale**depth for nodes at that
+// depth; essentially eta_depth_scale=0.5 will lead to more mass at higher
+// nodes, as opposed to leaves
+DECLARE_double(ncrp_eta_depth_scale);
+
 // The hLDA base class, contains code common to the Multinomial (fixed-depth)
 // and GEM (infinite-depth) samplers
 class NCRPBase : public GibbsSampler {

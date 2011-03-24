@@ -237,7 +237,6 @@ void GibbsSampler::load_data(const string& filename) {
 
     LOG(INFO) << "loading data from [" << filename << "]";
 
-    // Load from bz2 if necessary, otherwise load from a normal file
     ifstream input_file(filename.c_str(), ios_base::in | ios_base::binary);
 
     CHECK(input_file.is_open());
