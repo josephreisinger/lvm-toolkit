@@ -346,7 +346,7 @@ void NCRPBase::calculate_path_probabilities_for_subtree(
         // Rescale eta dependening on depth
         double eta_depth_scale = 1.0;
         if (FLAGS_ncrp_eta_depth_scale < 1.0) {
-            eta_depth_scale = pow(FLAGS_ncrp_eta_depth_scale, current->level+1);
+            eta_depth_scale = pow(FLAGS_ncrp_eta_depth_scale, current->level);
             // LOG(INFO) << "scaling eta at level " << current->level;
         }
 
@@ -394,7 +394,7 @@ void NCRPBase::calculate_path_probabilities_for_subtree(
                     // Rescale eta dependening on depth
                     double l_eta_depth_scale = 1.0;
                     if (FLAGS_ncrp_eta_depth_scale < 1.0) {
-                        l_eta_depth_scale = pow(FLAGS_ncrp_eta_depth_scale, l+1);
+                        l_eta_depth_scale = pow(FLAGS_ncrp_eta_depth_scale, l);
                         // LOG(INFO) << "scaling l_eta at level " << l;
                     }
                     prob += gammaln(_eta_sum*l_eta_depth_scale) - gammaln(nwsum_removed[l] + _eta_sum*l_eta_depth_scale);
