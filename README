@@ -70,7 +70,7 @@ environment. Here are some example invocations:
     (ncrp w/ depth 5 and depth-dependent eta scaling)
 
         GLOG_logtostderr=1 ./sampleMultNCRP \
-                         --mm_datafile=data.txt \
+                         --ncrp_datafile=data.txt \
                          --ncrp_depth=5 \
                          --ncrp_eta_depth_scale=0.5
 
@@ -78,7 +78,7 @@ environment. Here are some example invocations:
     (lda w/ 50 topics)
 
         GLOG_logtostderr=1 ./sampleMultNCRP \
-                         --mm_datafile=data.txt \
+                         --ncrp_datafile=data.txt \
                          --ncrp_depth=50 \
                          --ncrp_max_branches=1
 
