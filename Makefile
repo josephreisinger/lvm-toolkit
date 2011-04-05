@@ -6,7 +6,7 @@ CC = g++
 # LDFLAGS = -L/p/lib -L/projects/nn/joeraii/local_libraries_mastodon/lib/ -L/projects/nn/joeraii/local_libraries/lib/ -L/p/lib/
 LDFLAGS = -L/p/lib -L/scratch/cluster/joeraii/ncrp/local_libraries/lib/ -L/p/lib/
 LIBRARIES = -lglog -lgflags -lpthread
-EXECUTABLES = sampleSoftCrossCatMixtureModel sampleMultNCRP sampleGEMNCRP sampleFixedNCRP samplePrecomputedFixedNCRP sampleClusteredLDA sampleMixtureModel sampleCrossCatMixtureModel
+EXECUTABLES = sampleSoftCrossCatMixtureModel sampleMultNCRP sampleGEMNCRP sampleFixedNCRP samplePrecomputedFixedNCRP sampleClusteredLDA sampleCrossCatMixtureModel
 OBJECTS = dSFMT.o strutil.o gibbs-base.o ncrp-base.o sample-clustered-lda.o sample-precomputed-fixed-ncrp.o sample-fixed-ncrp.o sample-gem-ncrp.o sample-mult-ncrp.o sample-crosscat-mm.o  sample-soft-crosscat.o
 MTFLAGS = -msse2 -DDSFMT_MEXP=521 -DHAVE_SSE2 --param max-inline-insns-single=1800 --param inline-unit-growth=500 --param large-function-growth=900
 CFLAGS = -O3  $(MTFLAGS)  -DUSE_MT_RANDOM
