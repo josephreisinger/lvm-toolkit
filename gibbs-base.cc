@@ -28,6 +28,13 @@
 
 using namespace std;
 
+// For vanilla LDA, we can save the state of the model directly in the raw
+// docify, using an extra : for each term denoting the topic assignment. This
+// allows us to do some fancy things like checkpoint and update documents on the
+// fly.
+DEFINE_int32(preassigned_topics,
+              0,
+              "Topics are preassigned in docify (vanilla only).");
 
 // Streaming makes some major structural changes to the code, moving the main loop into load_data;
 // This variable sets how many documents should be kept in memory at any one time
@@ -158,6 +165,7 @@ void GibbsSampler::run() {
 void GibbsSampler::process_document_line(const string& curr_line, unsigned line_no) {
     vector<string> words;
     vector<unsigned> encoded_words;
+    vector<unsigned> topics;
     //CHECK_EQ(x, 0);
 
     SplitStringUsing(StringReplace(curr_line, "\n", "", true), "\t", &words);
@@ -187,8 +195,22 @@ void GibbsSampler::process_document_line(const string& curr_line, unsigned line_
         //VLOG(2) << words.at(i);
         SplitStringUsing(words.at(i), ":", &word_tokens);
 
-        int freq = atoi(word_tokens.back().c_str());
+        int topic;
+        int freq;
+        
+        if (FLAGS_preassigned_topics == 1) {
+            topic = atoi(word_tokens.back().c_str());
+            word_tokens.pop_back();
+        }
+        
+        freq = atoi(word_tokens.back().c_str());
         word_tokens.pop_back();
+
+        if (FLAGS_preassigned_topics == 1) {
+            CHECK_EQ(freq, 1);  // Each term gets a unique assignment
+        }
+
+
         string word = JoinStrings(word_tokens, ":");
 
         VLOG(1) << word << " " << freq;
@@ -204,14 +226,19 @@ void GibbsSampler::process_document_line(const string& curr_line, unsigned line_
         _V[_word_name_to_id[word]] += freq;
         for (int f = 0; f < freq; f++) {
             encoded_words.push_back(_word_name_to_id[word]);
+            topics.push_back(topic);
         }
         _total_word_count += freq;
         _nd[line_no] += freq;
     }
     _D[line_no] = encoded_words;
+    _initial_topic_assignment[line_no] = topics;
 
     _lD = _D.size();
     _lV = _V.size();
+
+    // Make sure eta is in a reasonable range
+    CHECK_LT(_eta_sum, 1000000);
 
     if (FLAGS_streaming > 0) {
         streaming_step(line_no);
@@ -234,6 +261,9 @@ void GibbsSampler::load_data(const string& filename) {
     _D.clear();
     _V.clear();
     _word_id_to_name.clear();
+
+    _initial_topic_assignment.clear();
+    
 
     LOG(INFO) << "loading data from [" << filename << "]";
 

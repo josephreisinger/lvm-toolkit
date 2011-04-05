@@ -1,7 +1,6 @@
 #!/bin/bash
 
-CONDORIZER=/projects/nn/joeraii/condorizer-8G.py
-BINARY=/scratch/cluster/joeraii/ncrp/sampleMultNCRP
+BINARY=~/Desktop/metamx/ncrp/sampleMultNCRP
 
 DATAFILE=$1
 DEPTH=$2
@@ -25,4 +24,4 @@ mkdir $SEED
 cd $SEED
 
 #GLOG_logtostderr=1 $BINARY --ncrp_datafile=$ORIGINAL_PATH/$DATAFILE --ncrp_alpha=$CRP_ALPHA --eta=$CRP_ETA --ncrp_max_branches=1 --ncrp_depth=$DEPTH --sample_lag=100 --random_seed=$SEED out
-GLOG_v=1 GLOG_logtostderr=1 $BINARY --ncrp_datafile=$ORIGINAL_PATH/$DATAFILE --ncrp_alpha=$CRP_ALPHA --eta=$CRP_ETA --ncrp_max_branches=1 --ncrp_depth=$DEPTH --sample_lag=5 --random_seed=$SEED out
+GLOG_logtostderr=1 $BINARY --ncrp_datafile=$ORIGINAL_PATH/$DATAFILE --ncrp_alpha=$CRP_ALPHA --eta=$CRP_ETA --ncrp_max_branches=1 --ncrp_depth=$DEPTH --sample_lag=5 --random_seed=$SEED out
