@@ -159,8 +159,7 @@ def ncrp_sample_iterator(sample):
             alpha = float(m.group(1))
             eta = float(m.group(2))
             L = int(m.group(3))
-            sys.stderr.write('Got alpha = %f eta = %f L = %d\n' % (alpha,
-                eta, L))
+            sys.stderr.write('Got alpha = %f eta = %f L = %d\n' % (alpha, eta, L))
             continue
 
         line = line.replace('\n','')

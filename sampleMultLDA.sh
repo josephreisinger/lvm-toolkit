@@ -5,20 +5,9 @@ TOPICS=$2
 CRP_ALPHA=$3
 CRP_ETA=$4
 SEED=$5
-MEM=$6
 
-if [ $MEM = "4G" ]; then
-    CONDORIZER=/projects/nn/joeraii/condorizer.py
-    BINARY=/scratch/cluster/joeraii/ncrp/sampleMultNCRP
-    echo Using 4G machines
-elif [ $MEM = "8G" ]; then
-    CONDORIZER=/projects/nn/joeraii/condorizer-8G.py
-    BINARY=/scratch/cluster/joeraii/ncrp/sampleMultNCRP64
-    echo Using 8G machines
-else
-    echo Error parsing memory requirement
-    exit
-fi
+CONDORIZER=/projects/nn/joeraii/condorizer.py
+BINARY=/scratch/cluster/joeraii/ncrp/sampleMultNCRP
 
 SHORN_DATAFILE=${DATAFILE##*/}
 
