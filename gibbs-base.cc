@@ -275,16 +275,24 @@ void GibbsSampler::load_data(const string& filename) {
 
     LOG(INFO) << "loading data from [" << filename << "]";
 
-    istream* input_file;
-    open_or_gz(filename, input_file);
+    // XXX: turn this block into a function somehow
+    ifstream ii(filename.c_str(), ios_base::in | ios_base::binary);
+    CHECK(ii.is_open());
+    boost::iostreams::filtering_streambuf<boost::iostreams::input> in;
+    if (is_gz_file(filename)) {
+        in.push(boost::iostreams::gzip_decompressor());
+    }
+    in.push(ii);
+    istream input_file(&in);
+    ///////////////////////////////////////////////
 
     string curr_line;
     unsigned line_no = 0;
     while (true) {
-        if (input_file->eof()) {
+        if (input_file.eof()) {
             break;
         }
-        getline(*input_file, curr_line);
+        getline(input_file, curr_line);
         process_document_line(curr_line, line_no);
         line_no += 1;
     }
@@ -297,7 +305,7 @@ void GibbsSampler::load_data(const string& filename) {
             << _total_word_count << " words (" << _V.size() << " unique) from "
             << filename;
     }
-    delete input_file;
+    //delete input_file;
 }
 
 // Machinering for printing out the tops of multinomials

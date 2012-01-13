@@ -600,12 +600,20 @@ bool SoftCrossCatMM::restore_data_from_file(string filename) {
     if(stat(filename.c_str(),&stFileInfo) == 0) {
         LOG(INFO) << "attempting to restore data from [" << filename << "]";
 
-        istream* input_file;
-        open_or_gz(filename, input_file);
+        // XXX: turn this block into a function somehow
+        ifstream ii(filename.c_str(), ios_base::in | ios_base::binary);
+        CHECK(ii.is_open());
+        boost::iostreams::filtering_streambuf<boost::iostreams::input> in;
+        if (is_gz_file(filename)) {
+            in.push(boost::iostreams::gzip_decompressor());
+        }
+        in.push(ii);
+        istream input_file(&in);
+        ///////////////////////////////////////////////
 
         string curr_line;
-        getline(*input_file, curr_line);
-        getline(*input_file, curr_line);
+        getline(input_file, curr_line);
+        getline(input_file, curr_line);
         vector<string> tokens;
         SplitStringUsing(StringReplace(curr_line, "\n", "", true), "\t", &tokens);
         CHECK_EQ(tokens.size(), 3);
@@ -614,7 +622,7 @@ bool SoftCrossCatMM::restore_data_from_file(string filename) {
         _best_ll = atof(tokens.at(2).c_str());
 
         while (true) {
-            getline(*input_file, curr_line);
+            getline(input_file, curr_line);
 
             if (curr_line == "END") {
                 LOG(INFO) << "read correctly, resuming from iter=" << _iter;
@@ -630,7 +638,7 @@ bool SoftCrossCatMM::restore_data_from_file(string filename) {
                 }
                 break;
             }
-            if (input_file->eof()) {
+            if (input_file.eof()) {
                 break;
             }
 
@@ -656,7 +664,6 @@ bool SoftCrossCatMM::restore_data_from_file(string filename) {
             _cluster_marginal[zdn].add_no_ndsum(w, d);
         }
         VLOG(1) << "done";
-        delete input_file;
     }
 
     return finished;
