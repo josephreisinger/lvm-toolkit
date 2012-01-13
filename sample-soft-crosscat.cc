@@ -115,6 +115,7 @@ void SoftCrossCatMM::clean_initialization() {
 
 void SoftCrossCatMM::batch_allocation() {
     CHECK(FLAGS_implementation == "normal" || FLAGS_implementation == "marginal");
+    CHECK(FLAGS_binarize);  // Only works on the binarized docifies
 
     is_cluster_marginal = (FLAGS_implementation == "marginal");
     is_fixed_topics = (FLAGS_cc_fixed_topic_seed != "");
@@ -325,6 +326,11 @@ void SoftCrossCatMM::resample_posterior_z_for(unsigned d) {
     
     // Gibbs sampler for XCAT
     // _cluster [ zdn ] [ cdm ]
+    
+    // don't resample z if the topics are fixed
+    if (is_fixed_topics) {
+        return;
+    }
 
     for (int n = 0; n < _D[d].size(); n++) {
         unsigned w = _D[d][n];

@@ -101,6 +101,9 @@ DECLARE_double(epsilon_value);
 // convergence?
 DECLARE_int32(convergence_interval);
 
+// Binarize the feature counts
+DECLARE_bool(binarize);
+
 class CRP;
 
 typedef google::sparse_hash_map<unsigned, unsigned> WordToCountMap;

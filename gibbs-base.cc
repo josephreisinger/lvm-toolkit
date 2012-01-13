@@ -81,6 +81,11 @@ DEFINE_int32(convergence_interval,
              0,
              "How many steps should we wait before declaring convergence? 0 = off");
 
+// Binarize the feature counts
+DEFINE_bool(binarize,
+            false,
+            "Binarize the word counts.");
+
 // The Mersenne Twister
 dsfmt_t dsfmt;
 
@@ -224,6 +229,9 @@ void GibbsSampler::process_document_line(const string& curr_line, unsigned line_
             _eta_sum += FLAGS_eta;
         }
         _V[_word_name_to_id[word]] += freq;
+        if (FLAGS_binarize) {
+            freq = 1;
+        }
         for (int f = 0; f < freq; f++) {
             encoded_words.push_back(_word_name_to_id[word]);
             topics.push_back(topic);
