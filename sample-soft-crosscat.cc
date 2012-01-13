@@ -68,6 +68,11 @@ DEFINE_bool(cc_resume_from_best,
             false,
             "Should we try to resume from a file?");
 
+// If defined, will load the seed file 
+DEFINE_string(cc_fixed_topic_seed,
+              "",
+              "File to seed from, if any.");
+
 const string kNormalModel = "normal";
 const string kMarginalModel = "marginal";
 
@@ -112,6 +117,7 @@ void SoftCrossCatMM::batch_allocation() {
     CHECK(FLAGS_implementation == "normal" || FLAGS_implementation == "marginal");
 
     is_cluster_marginal = (FLAGS_implementation == "marginal");
+    is_fixed_topics = (FLAGS_cc_fixed_topic_seed != "");
 
     // Set up the asymmetric dirichlet priors for each clustering and for the
     // cross-cat
@@ -121,11 +127,16 @@ void SoftCrossCatMM::batch_allocation() {
     _cluster_marginal.set_empty_key(kEmptyUnsignedKey);
     _cluster_marginal.set_deleted_key(kDeletedUnsignedKey);
 
-    if (!FLAGS_cc_resume_from_best || !restore_data("best")) {
+    if (!FLAGS_cc_resume_from_best || !restore_data_from_prefix("best")) {
         LOG(INFO) << "clean initialize";
 
         // Clean out the data structures just in-case we added anything
         clean_initialization();
+
+        // Load seed file if necessary
+        if (is_fixed_topics) {
+            restore_data_from_file(FLAGS_cc_fixed_topic_seed);
+        }
 
         // Add the documents into the clustering
         for (DocumentMap::iterator d_itr = _D.begin(); d_itr != _D.end(); d_itr++) {
@@ -500,8 +511,6 @@ void SoftCrossCatMM::resample_posterior() {
         }
     }
 
-
-
     // Write the current cluster sizes to the console
     for (multiple_clustering::iterator c_itr = _cluster.begin();
             c_itr != _cluster.end();
@@ -569,12 +578,14 @@ void SoftCrossCatMM::write_data(string prefix) {
 }
 
 // Restore from the intermediate model
-bool SoftCrossCatMM::restore_data(string prefix) {
+bool SoftCrossCatMM::restore_data_from_prefix(string prefix) {
     current_state();   // HACK
+    return restore_data_from_file(
+                StringPrintf("%s-%d-%s.hlda", get_base_name(_output_filename).c_str(), FLAGS_random_seed, prefix.c_str())
+            );
+}
+bool SoftCrossCatMM::restore_data_from_file(string filename) {
     bool finished = false;
-    string filename = StringPrintf("%s-%d-%s.hlda", get_base_name(_output_filename).c_str(),
-            FLAGS_random_seed, prefix.c_str());
-
     struct stat stFileInfo; 
     ifstream input_file(filename.c_str(), ios_base::in | ios_base::binary);
 
@@ -606,8 +617,6 @@ bool SoftCrossCatMM::restore_data(string prefix) {
                 // Add the documents into the clustering
                 for (DocumentMap::iterator d_itr = _D.begin(); d_itr != _D.end(); d_itr++) {
                     unsigned d = d_itr->first;  // = document number
-
-                    // set a random topic/crosscut view assignment for this document
                     for (int m = 0; m < FLAGS_M; m++) {
                         _cluster[m][_c[d][m]].ndsum += 1; // Can't use ADD b/c we need to maintain ndsum over all the views
                         _cluster_marginal[m].ndsum += 1; // Can't use ADD b/c we need to maintain ndsum over all the views

@@ -50,6 +50,8 @@ DECLARE_bool(cc_include_noise_view);
 // If toggled, will resume from the best model written so far
 DECLARE_bool(cc_resume_from_best);
 
+DECLARE_string(cc_fixed_topic_seed);
+
 // Implements several kinds of mixture models (uniform prior, Dirichlet prior,
 // DPCrossCatMM all with DP-Multinomial likelihood.
 class SoftCrossCatMM : public GibbsSampler {
@@ -67,7 +69,8 @@ class SoftCrossCatMM : public GibbsSampler {
         void write_data(string prefix);
 
         // Restore from the intermediate model
-        bool restore_data(string prefix);
+        bool restore_data_from_prefix(string prefix);
+        bool restore_data_from_file(string filename);
     protected:
         void resample_posterior();
         void resample_posterior_c_for(unsigned d);
@@ -104,6 +107,8 @@ class SoftCrossCatMM : public GibbsSampler {
 
         // Cluster marginal model?
         bool is_cluster_marginal;
+        // Fixed topic assignments?
+        bool is_fixed_topics;
 };
 
 #endif  // SAMPLE_SOFT_CROSSCAT_MM_H_
