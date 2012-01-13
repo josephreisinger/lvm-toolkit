@@ -275,17 +275,16 @@ void GibbsSampler::load_data(const string& filename) {
 
     LOG(INFO) << "loading data from [" << filename << "]";
 
-    ifstream input_file(filename.c_str(), ios_base::in | ios_base::binary);
-
-    CHECK(input_file.is_open());
+    istream* input_file;
+    open_or_gz(filename, input_file);
 
     string curr_line;
     unsigned line_no = 0;
     while (true) {
-        if (input_file.eof()) {
+        if (input_file->eof()) {
             break;
         }
-        getline(input_file, curr_line);
+        getline(*input_file, curr_line);
         process_document_line(curr_line, line_no);
         line_no += 1;
     }
@@ -298,12 +297,12 @@ void GibbsSampler::load_data(const string& filename) {
             << _total_word_count << " words (" << _V.size() << " unique) from "
             << filename;
     }
+    delete input_file;
 }
 
 // Machinering for printing out the tops of multinomials
 typedef std::pair<string, unsigned> word_score;
-bool word_score_comp(const word_score& left, const word_score& right)
-{
+bool word_score_comp(const word_score& left, const word_score& right) {
     return left.second > right.second;
 }
 
@@ -669,4 +668,24 @@ bool is_bz2_file(const string& s) {
     SplitStringUsing(s, ".", &tokens);
 
     return tokens.back() == "bz2";
+}
+
+// Ditto for gz
+bool is_gz_file(const string& s) {
+    vector<string> tokens;
+    SplitStringUsing(s, ".", &tokens);
+
+    return tokens.back() == "gz";
+}
+
+
+void open_or_gz(string filename, istream* result_stream) {
+    ifstream input_file(filename.c_str(), ios_base::in | ios_base::binary);
+    CHECK(input_file.is_open());
+    boost::iostreams::filtering_streambuf<boost::iostreams::input> in;
+    if (is_gz_file(filename)) {
+        in.push(boost::iostreams::gzip_decompressor());
+    }
+    in.push(input_file);
+    result_stream = new istream(&in); 
 }

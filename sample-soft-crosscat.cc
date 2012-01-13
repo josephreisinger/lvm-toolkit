@@ -593,7 +593,6 @@ bool SoftCrossCatMM::restore_data_from_prefix(string prefix) {
 bool SoftCrossCatMM::restore_data_from_file(string filename) {
     bool finished = false;
     struct stat stFileInfo; 
-    ifstream input_file(filename.c_str(), ios_base::in | ios_base::binary);
 
     clean_initialization();
 
@@ -601,11 +600,12 @@ bool SoftCrossCatMM::restore_data_from_file(string filename) {
     if(stat(filename.c_str(),&stFileInfo) == 0) {
         LOG(INFO) << "attempting to restore data from [" << filename << "]";
 
-        ifstream f(filename.c_str(), ios_base::in | ios_base::binary);
+        istream* input_file;
+        open_or_gz(filename, input_file);
 
         string curr_line;
-        getline(input_file, curr_line);
-        getline(input_file, curr_line);
+        getline(*input_file, curr_line);
+        getline(*input_file, curr_line);
         vector<string> tokens;
         SplitStringUsing(StringReplace(curr_line, "\n", "", true), "\t", &tokens);
         CHECK_EQ(tokens.size(), 3);
@@ -614,7 +614,7 @@ bool SoftCrossCatMM::restore_data_from_file(string filename) {
         _best_ll = atof(tokens.at(2).c_str());
 
         while (true) {
-            getline(input_file, curr_line);
+            getline(*input_file, curr_line);
 
             if (curr_line == "END") {
                 LOG(INFO) << "read correctly, resuming from iter=" << _iter;
@@ -630,7 +630,7 @@ bool SoftCrossCatMM::restore_data_from_file(string filename) {
                 }
                 break;
             }
-            if (input_file.eof()) {
+            if (input_file->eof()) {
                 break;
             }
 
@@ -656,6 +656,7 @@ bool SoftCrossCatMM::restore_data_from_file(string filename) {
             _cluster_marginal[zdn].add_no_ndsum(w, d);
         }
         VLOG(1) << "done";
+        delete input_file;
     }
 
     return finished;

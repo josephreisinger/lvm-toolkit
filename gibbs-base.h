@@ -50,6 +50,9 @@
 
 #include <map>
 
+#include <boost/iostreams/filtering_streambuf.hpp>
+#include <boost/iostreams/filter/gzip.hpp>
+
 #include <google/sparse_hash_map>
 #include <google/dense_hash_map>
 
@@ -384,4 +387,6 @@ double sample_uniform();
 string get_base_name(const string& s);
 // filtering_ostream get_bz2_ostream(const string& filename);
 bool is_bz2_file(const string& s);
+bool is_gz_file(const string& s);
+void open_or_gz(string filename, istream* result_stream);
 #endif  // GIBBS_BASE_H_
