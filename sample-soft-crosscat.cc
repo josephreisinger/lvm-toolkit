@@ -586,6 +586,7 @@ void SoftCrossCatMM::write_data(string prefix) {
 // Restore from the intermediate model
 bool SoftCrossCatMM::restore_data_from_prefix(string prefix) {
     current_state();   // HACK
+    clean_initialization();
     return restore_data_from_file(
                 StringPrintf("%s-%d-%s.hlda", get_base_name(_output_filename).c_str(), FLAGS_random_seed, prefix.c_str())
             );
@@ -593,8 +594,6 @@ bool SoftCrossCatMM::restore_data_from_prefix(string prefix) {
 bool SoftCrossCatMM::restore_data_from_file(string filename) {
     bool finished = false;
     struct stat stFileInfo; 
-
-    clean_initialization();
 
     // Attempt to get the file attributes 
     if(stat(filename.c_str(),&stFileInfo) == 0) {
@@ -650,6 +649,8 @@ bool SoftCrossCatMM::restore_data_from_file(string filename) {
             unsigned cdm = atoi(tokens.at(2).c_str());
             unsigned zdn = atoi(tokens.at(3).c_str());
 
+            CHECK_LT(zdn, FLAGS_M);
+
             _z[d][n] = zdn;
             _c[d][zdn] = cdm;
 
@@ -659,6 +660,9 @@ bool SoftCrossCatMM::restore_data_from_file(string filename) {
 
             // Cant use ADD b/c we need to keep the ndsum consistent across the
             // views
+            CHECK(_D.find(d) != _D.end());
+            CHECK_LT(n, _D[d].size());
+
             unsigned w = _D[d][n];
             _cluster[zdn][cdm].add_no_ndsum(w, d);
             _cluster_marginal[zdn].add_no_ndsum(w, d);

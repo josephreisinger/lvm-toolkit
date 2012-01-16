@@ -11,26 +11,13 @@ NOISE=${8}
 KMAX=${9}
 IMPLEMENTATION=${10}
 
-
-MEM=4G
-
 echo $KMAX MAX_CLUSTERS
 echo $M VIEWS
 echo $SEED SEED
 echo $NOISE NOISE
 
-if [ $MEM = "4G" ]; then
-    CONDORIZER=/projects/nn/joeraii/condorizer.py
-    BINARY=/scratch/cluster/joeraii/ncrp/sampleSoftCrossCatMixtureModel
-    echo Using 4G machines
-elif [ $MEM = "8G" ]; then
-    CONDORIZER=/projects/nn/joeraii/condorizer-8G.py
-    BINARY=/scratch/cluster/joeraii/ncrp/sampleSoftCrossCatMixtureModel64
-    echo Using 8G machines
-else
-    echo Error parsing memory requirement
-    exit
-fi
+CONDORIZER=/projects/nn/joeraii/condorizer.py
+BINARY=/scratch/cluster/joeraii/ncrp/sampleSoftCrossCatMixtureModel
 
 SHORN_DATAFILE=${DATAFILE##*/}
 

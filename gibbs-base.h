@@ -304,7 +304,7 @@ class GibbsSampler {
         virtual void load_data(const string& filename);
         
         // Process a single document line from the file
-        void process_document_line(const string& curr_line, unsigned line_no);
+        bool process_document_line(const string& curr_line, unsigned line_no);
 
         // Write some summary of the output
         virtual void write_data(string prefix) = 0;

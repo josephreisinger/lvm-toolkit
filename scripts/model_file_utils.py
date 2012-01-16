@@ -153,8 +153,6 @@ def ncrp_sample_iterator(sample):
     visited = set()
     for (line_no, line) in enumerate(open_or_bz2(sample)):
         if line.startswith('ll ='):
-            # ll = -434060662.375486 (-434060662.375486 at 123) -627048446 alpha = 0.001000 eta = 0.100000 L = 454
-            # ll = -432994653.484200 (-432994653.484200 at 100) -1071382526 alpha = 0.001000 eta = 0.100000 L = 211
             m = re.search('alpha = (.*) eta = (.*) gamma .* L = (.*)', line)
             alpha = float(m.group(1))
             eta = float(m.group(2))
@@ -316,3 +314,93 @@ def build_sort(dist, to_show=100):
 
     return sorted_dist
 
+def load_append_llda_samples(samples, word_of, doc_of, category_of, node_term_dist,
+        term_node_dist, node_doc_dist, doc_node_dist, restrict_categories=set(),
+        skip_noise=False):
+    alpha, eta = 0, 0
+    sys.stderr.write('Loading samples...\n')
+    for sample in samples:
+        sys.stderr.write('%s\n' % sample)
+        f = open_or_bz2(sample)
+        for line in f:
+            if line.startswith('ll ='):
+                # ll = -434060662.375486 (-434060662.375486 at 123) -627048446 alpha = 0.001000 eta = 0.100000 L = 454
+                # ll = -432994653.484200 (-432994653.484200 at 100) -1071382526 alpha = 0.001000 eta = 0.100000 L = 211
+                m = re.search('ll = .* alpha = (.*) eta = (.*) L = .*', line)
+                alpha = float(m.group(1))
+                eta = float(m.group(2))
+                sys.stderr.write('Got alpha = %f eta = %f\n' % (alpha, eta))
+                continue
+
+            concept, _, rest = line.partition('\t||\t')
+            concept = int(concept, 0)
+            
+            if (not skip_noise or not category_of[concept].startswith('NOISE')) and \
+                    (not restrict_categories or concept in restrict_categories):
+                tokens = rest.strip().split('\t||\t')
+                if len(tokens) == 3:
+                    m, w, d = tokens
+                else:
+                    assert len(tokens) == 2
+                    m, w = tokens
+                    d = []
+                if w != '||':
+                    d = map(parse_int_float_count, d.split('\t'))
+                    w = map(parse_int_float_count, w.split('\t'))
+                    # print 'Found', len(d), 'docs and', len(w), 'terms at', category_of[concept]
+                    assert concept in category_of
+
+                    nw_sum = float(sum([c for _,c in w]))
+                    for ww, c in w:
+                        assert ww in word_of
+                        if nw_sum < 10000 or float(c) / nw_sum > TOLERANCE:  # Allow small nodes and high prob things
+                            node_term_dist[intern(category_of[concept])][intern(word_of[ww])] += c
+                            term_node_dist[intern(word_of[ww])][intern(category_of[concept])] += c
+                    for dd, c in d:
+                        assert dd in doc_of
+                        node_doc_dist[intern(category_of[concept])][intern(doc_of[dd])] += c
+                        doc_node_dist[intern(doc_of[dd])][intern(category_of[concept])] += c
+
+    return alpha, eta
+
+
+def load_all_llda_samples(DictionaryFile, MapOrBayes, restrict_docs=set(),
+        skip_noise=False):
+    node_term_dist = defaultdict(lambda: defaultdict(int))
+    term_node_dist = defaultdict(lambda: defaultdict(int))
+    node_doc_dist = defaultdict(lambda: defaultdict(int))
+    doc_node_dist = defaultdict(lambda: defaultdict(int))
+
+    sys.stderr.write('Quantizing to TOLERANCE=%f\n' % TOLERANCE)
+
+    if MapOrBayes == 'map':
+        Header = DictionaryFile.split('.dictionary')[0] + '-best'
+        # Samples = [os.path.dirname(Header)+'/'+x for x in os.listdir(os.path.dirname(Header)) if x.startswith(os.path.basename(Header))] 
+        Samples = glob(Header+'*')
+    else:
+        Header = DictionaryFile.split('.dictionary')[0] + '-sample'
+        # Samples = [os.path.dirname(Header)+'/'+x for x in os.listdir(os.path.dirname(Header)) if x.startswith(os.path.basename(Header))] 
+        Samples = glob(Header+'*')
+    sys.stderr.write('%s\n' % Header)
+    sys.stderr.write('%d\n' % len(Samples))
+
+    # Load the dictioanry
+    (category_of, word_of, doc_of, doc_to_categories) = read_hlda_dictionary(DictionaryFile)
+
+    # Compute all the categories covered by the interesting docs
+    restrict_categories = set()
+    for d in restrict_docs:
+        if doc_to_categories.has_key(d):
+            sys.stderr.write('FOUND [%s] at %r\n' % (d, [category_of[dd] for dd
+                in doc_to_categories[d]]))
+            restrict_categories.update(doc_to_categories[d])
+        else:
+            sys.stderr.write('MISSING [%s]\n' % (d))
+
+    # Actually load the samples
+    alpha, eta = load_append_llda_samples(Samples, word_of, doc_of, category_of,
+            node_term_dist, term_node_dist, node_doc_dist, doc_node_dist,
+            restrict_categories=restrict_categories, skip_noise=skip_noise)
+
+    return (word_of, doc_of, category_of, doc_to_categories, node_term_dist,
+            term_node_dist, node_doc_dist, doc_node_dist, alpha, eta)

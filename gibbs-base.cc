@@ -167,7 +167,7 @@ void GibbsSampler::run() {
     }
 }
 
-void GibbsSampler::process_document_line(const string& curr_line, unsigned line_no) {
+bool GibbsSampler::process_document_line(const string& curr_line, unsigned line_no) {
     vector<string> words;
     vector<unsigned> encoded_words;
     vector<unsigned> topics;
@@ -178,13 +178,13 @@ void GibbsSampler::process_document_line(const string& curr_line, unsigned line_
     // V->insert(words.begin(), words.end());
     if (words.empty()) {
         LOG(WARNING) << "EMPTY LINE";
-        return;
+        return false;
     }
 
     // the name of the document
     if (words.size() == 1) {
         LOG(WARNING) << "empty document " << words[0];
-        return;
+        return false;
     }
 
     _document_name[line_no] = words[0];
@@ -252,6 +252,7 @@ void GibbsSampler::process_document_line(const string& curr_line, unsigned line_
         streaming_step(line_no);
     }
 
+    return true;
 }
 
 void GibbsSampler::streaming_step(unsigned new_d) {
@@ -293,8 +294,9 @@ void GibbsSampler::load_data(const string& filename) {
             break;
         }
         getline(input_file, curr_line);
-        process_document_line(curr_line, line_no);
-        line_no += 1;
+        if (process_document_line(curr_line, line_no)) {
+            line_no += 1;
+        }
     }
 
     // Allocate documents
