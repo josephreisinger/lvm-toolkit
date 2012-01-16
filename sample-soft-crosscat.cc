@@ -128,16 +128,19 @@ void SoftCrossCatMM::batch_allocation() {
     _cluster_marginal.set_empty_key(kEmptyUnsignedKey);
     _cluster_marginal.set_deleted_key(kDeletedUnsignedKey);
 
+    if (FLAGS_cc_resume_from_best && restore_data_from_prefix("best")) {
+        return;
+    }
+
+    if (is_fixed_topics && restore_data_from_file(FLAGS_cc_fixed_topic_seed)) {
+        return;
+    }
+
     if (!FLAGS_cc_resume_from_best || !restore_data_from_prefix("best")) {
         LOG(INFO) << "clean initialize";
 
         // Clean out the data structures just in-case we added anything
         clean_initialization();
-
-        // Load seed file if necessary
-        if (is_fixed_topics) {
-            restore_data_from_file(FLAGS_cc_fixed_topic_seed);
-        }
 
         // Add the documents into the clustering
         for (DocumentMap::iterator d_itr = _D.begin(); d_itr != _D.end(); d_itr++) {
