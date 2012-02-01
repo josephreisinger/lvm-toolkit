@@ -107,6 +107,12 @@ DECLARE_int32(convergence_interval);
 // Binarize the feature counts
 DECLARE_bool(binarize);
 
+// Should the best sample get output?
+DECLARE_bool(output_best);
+
+// Should the last sample get output?
+DECLARE_bool(output_last);
+
 class CRP;
 
 typedef google::sparse_hash_map<unsigned, unsigned> WordToCountMap;

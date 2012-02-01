@@ -86,6 +86,16 @@ DEFINE_bool(binarize,
             false,
             "Binarize the word counts.");
 
+// Should the best sample get output?
+DEFINE_bool(output_best,
+            true,
+            "Output the best sample");
+
+// Should the last sample get output?
+DEFINE_bool(output_last,
+            false,
+            "Output the last sample");
+
 // The Mersenne Twister
 dsfmt_t dsfmt;
 
@@ -145,11 +155,13 @@ bool GibbsSampler::sample_and_check_for_convergence() {
         LOG(INFO) << "Resampling iter = " << _iter << " " << current_state();
     }
 
-    if (FLAGS_sample_lag > 0 && _iter % FLAGS_sample_lag == 0) {
+    if (FLAGS_output_best && FLAGS_sample_lag > 0 && _iter % FLAGS_sample_lag == 0) {
         write_data(StringPrintf("sample-%05d", _iter));
     }
 
-    write_data("last");
+    if (FLAGS_output_last) {
+        write_data("last");
+    }
 
     _iter++;
 
