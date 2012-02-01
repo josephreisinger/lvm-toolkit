@@ -626,7 +626,16 @@ bool SoftCrossCatMM::restore_data_from_file(string filename) {
         CHECK_EQ(tokens.size(), 3);
         _iter = atoi(tokens.at(0).c_str()) + 1;
         _best_iter = atoi(tokens.at(1).c_str());
-        _best_ll = atof(tokens.at(2).c_str());
+
+        if (tokens.at(2).c_str() == "-inf") {
+            // negative infintity voodoo
+            LOG(WARNING) << "negative infinity was best ll previously";
+            (*((long long*)&_best_ll))= ~(1LL<<52);
+
+        } else {
+            _best_ll = atof(tokens.at(2).c_str());
+        }
+
 
         while (true) {
             getline(input_file, curr_line);
