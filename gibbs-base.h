@@ -139,12 +139,11 @@ const unsigned kEmptyUnsignedKey = UINT_MAX;
 const unsigned kDeletedUnsignedKey = UINT_MAX-1;
 const string kDeletedStringKey = "$$$DELETED$$$";
 
-class sampler_result {
+class sampler_entry {
     public:
-        sampler_result(unsigned index, double score, double norm) 
-            : index(index), score(score), norm(norm) { }
+        sampler_entry(unsigned index, double score) 
+            : index(index), score(score) { }
         double score;
-        long double norm;
         unsigned index;
 };
 
@@ -389,7 +388,7 @@ inline int sample_normalized_multinomial(vector<double>*d);
 inline int sample_normalized_multinomial(vector<pair<unsigned,double> >*d);
 unsigned sample_unnormalized_log_multinomial(vector<double>*d);
 unsigned sample_unnormalized_log_multinomial(vector<pair<unsigned,double> >*d);
-sampler_result NEW_sample_unnormalized_log_multinomial(vector<pair<unsigned,double> >*d);
+sampler_entry NEW_sample_unnormalized_log_multinomial(vector<sampler_entry>*d);
 int SAFE_sample_unnormalized_log_multinomial(vector<double>*d);
 int SAFE_sample_unnormalized_log_multinomial(vector<pair<unsigned,double> >*d);
 

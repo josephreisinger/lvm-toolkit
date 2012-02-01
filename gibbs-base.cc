@@ -627,7 +627,7 @@ unsigned sample_unnormalized_log_multinomial(vector<pair<unsigned,double> >*d) {
     return -1;
 }
 
-sampler_result NEW_sample_unnormalized_log_multinomial(vector<pair<unsigned,double> >*d) {
+sampler_entry NEW_sample_unnormalized_log_multinomial(vector<sampler_entry>*d) {
     double cut = sample_uniform();
     CHECK_LE(cut, 1.0);
     CHECK_GE(cut, 0.0);
@@ -636,20 +636,20 @@ sampler_result NEW_sample_unnormalized_log_multinomial(vector<pair<unsigned,doub
     long double s = 0;
 
     for (i = 0; i < d->size(); i++) {
-        s = addLog(s, d->at(i).second);
-        CHECK_GT(s, 0);
+        s = addLog(s, d->at(i).score);
     }
     for (i = 0; i < d->size(); i++) {
-        double score = exp(d->at(i).second - s);
+        double score = exp(d->at(i).score - s);
         cut -= score;
 
         if (cut < 0) {
-            return sampler_result(d->at(i).first, score, s);
+            // Return a new entry with the normalized score
+            return sampler_entry(d->at(i).index, score);
         }
     }
 
     CHECK(false) << "improperly normalized distribution " << cut;
-    return sampler_result(-1, 0, 0);
+    return d->at(0);
 }
 
 int SAFE_sample_unnormalized_log_multinomial(vector<double>*d) {

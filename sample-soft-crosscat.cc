@@ -228,7 +228,7 @@ void SoftCrossCatMM::resample_posterior_c_for(unsigned d) {
         // document-cluster assignments
         
         // This is essentially Radford Neal's Algorithm 3, check out Mark Johnson's notes: http://cog.brown.edu/~mj/classes/cg168/slides/ChineseRestaurants.pdf
-        vector<pair<unsigned,double> > lp_z_d;
+        vector<sampler_entry> lp_z_d;
         for (clustering::iterator itr = _cluster[m].begin();
                 itr != _cluster[m].end();
                 itr++) {
@@ -252,7 +252,7 @@ void SoftCrossCatMM::resample_posterior_c_for(unsigned d) {
                 unsigned count = itr->second;
                 sum += gammaln(_eta[w] + count + _cluster[m][l].nw[w]) - gammaln(_eta[w] + _cluster[m][l].nw[w]);
             }
-            lp_z_d.push_back(pair<unsigned,double>(l, sum));
+            lp_z_d.push_back(sampler_entry(l, sum));
         }
 
 
@@ -273,18 +273,26 @@ void SoftCrossCatMM::resample_posterior_c_for(unsigned d) {
                         unsigned count = itr->second;
                         sum += gammaln(_eta[w] + count) - gammaln(_eta[w]);
                     }
-                    lp_z_d.push_back(pair<unsigned,double>(_current_component[m], sum));
+                    lp_z_d.push_back(sampler_entry(_current_component[m], sum));
                 }
             }
         }
 
         // Update the assignment
-        sampler_result x = NEW_sample_unnormalized_log_multinomial(&lp_z_d);
+        sampler_entry x = NEW_sample_unnormalized_log_multinomial(&lp_z_d);
         _c[d][m] = x.index;
         VLOG(1) << "resampling posterior c for " << d << "," << m << ": " << old_cdm << "->" << _c[d][m];
 
         // Add in the probability of selecting that cluster
-        _temp_log_lik += log(x.score) - log(x.norm);
+        // LOG(INFO) << x.score;
+        /*if (x.score == 1.0) {
+            LOG(INFO) << "ONE";
+            for (int i = 0; i < lp_z_d.size(); i++) {
+                LOG(INFO) << lp_z_d.at(i).index << " " << lp_z_d.at(i).score;
+            }
+        }*/
+        CHECK_GT(x.score, 0);
+        _temp_log_lik += log(x.score);
 
         unsigned new_cdm = _c[d][m];
 
