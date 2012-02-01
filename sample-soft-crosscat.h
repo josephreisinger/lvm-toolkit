@@ -70,7 +70,7 @@ class SoftCrossCatMM : public GibbsSampler {
 
         // Restore from the intermediate model
         bool restore_data_from_prefix(string prefix);
-        bool restore_data_from_file(string filename);
+        bool restore_data_from_file(string filename, bool seed);
     protected:
         void resample_posterior();
         void resample_posterior_c_for(unsigned d);

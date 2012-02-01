@@ -128,64 +128,63 @@ void SoftCrossCatMM::batch_allocation() {
     _cluster_marginal.set_empty_key(kEmptyUnsignedKey);
     _cluster_marginal.set_deleted_key(kDeletedUnsignedKey);
 
-    if (FLAGS_cc_resume_from_best && restore_data_from_prefix("best")) {
+    if (FLAGS_cc_resume_from_best && restore_data_from_prefix("last")) {
+        LOG(WARNING) << "restored from last, not best";
         return;
     }
 
-    if (is_fixed_topics && restore_data_from_file(FLAGS_cc_fixed_topic_seed)) {
+    if (is_fixed_topics && restore_data_from_file(FLAGS_cc_fixed_topic_seed, true)) {
         return;
     }
 
-    if (!FLAGS_cc_resume_from_best || !restore_data_from_prefix("best")) {
-        LOG(INFO) << "clean initialize";
+    LOG(INFO) << "clean initialize";
 
-        // Clean out the data structures just in-case we added anything
-        clean_initialization();
+    // Clean out the data structures just in-case we added anything
+    clean_initialization();
 
-        // Add the documents into the clustering
-        for (DocumentMap::iterator d_itr = _D.begin(); d_itr != _D.end(); d_itr++) {
-            unsigned d = d_itr->first;  // = document number
+    // Add the documents into the clustering
+    for (DocumentMap::iterator d_itr = _D.begin(); d_itr != _D.end(); d_itr++) {
+        unsigned d = d_itr->first;  // = document number
 
-            // set a random topic/crosscut view assignment for this document
-            for (int m = 0; m < FLAGS_M; m++) {
-                _c[d][m] = 0; //sample_integer(_cluster[m].size());
-                _cluster[m][_c[d][m]].ndsum += 1; // Can't use ADD b/c we need to maintain ndsum over all the views
-                _cluster_marginal[m].ndsum += 1; // Can't use ADD b/c we need to maintain ndsum over all the views
+        // set a random topic/crosscut view assignment for this document
+        for (int m = 0; m < FLAGS_M; m++) {
+            _c[d][m] = 0; //sample_integer(_cluster[m].size());
+            _cluster[m][_c[d][m]].ndsum += 1; // Can't use ADD b/c we need to maintain ndsum over all the views
+            _cluster_marginal[m].ndsum += 1; // Can't use ADD b/c we need to maintain ndsum over all the views
+        }
+
+        // Initial level assignments
+        for (int n = 0; n < _D[d].size(); n++) {
+            unsigned w = _D[d][n];
+
+            _z[d][n] = sample_integer(FLAGS_M);
+
+            // _m maps a document-term to a view
+            unsigned zdn = _z[d][n];
+            // _z maps a document-view to a cluster
+            unsigned cdm = _c[d][zdn];
+
+            // test the initialization of maps
+            CHECK(_cluster[zdn][cdm].nw.find(w) != _cluster[zdn][cdm].nw.end() || _cluster[zdn][cdm].nw[w] == 0);
+
+            // Cant use ADD b/c we need to keep the ndsum consistent across the
+            // views
+            _cluster[zdn][cdm].add_no_ndsum(w, d);
+            _cluster_marginal[zdn].add_no_ndsum(w, d);
+        }
+        
+        if (d > 0) {
+            resample_posterior_c_for(d);
+            resample_posterior_z_for(d);
+        }
+
+        if (d % 1000 == 0 && d > 0) {
+            string cluster_sizes = "";
+            for (int m = 0; m < _cluster.size(); m++) {
+                cluster_sizes += StringPrintf("%d ", _cluster[m].size());
             }
 
-            // Initial level assignments
-            for (int n = 0; n < _D[d].size(); n++) {
-                unsigned w = _D[d][n];
-
-                _z[d][n] = sample_integer(FLAGS_M);
-
-                // _m maps a document-term to a view
-                unsigned zdn = _z[d][n];
-                // _z maps a document-view to a cluster
-                unsigned cdm = _c[d][zdn];
-
-                // test the initialization of maps
-                CHECK(_cluster[zdn][cdm].nw.find(w) != _cluster[zdn][cdm].nw.end() || _cluster[zdn][cdm].nw[w] == 0);
-
-                // Cant use ADD b/c we need to keep the ndsum consistent across the
-                // views
-                _cluster[zdn][cdm].add_no_ndsum(w, d);
-                _cluster_marginal[zdn].add_no_ndsum(w, d);
-            }
-            
-            if (d > 0) {
-                resample_posterior_c_for(d);
-                resample_posterior_z_for(d);
-            }
-
-            if (d % 1000 == 0 && d > 0) {
-                string cluster_sizes = "";
-                for (int m = 0; m < _cluster.size(); m++) {
-                    cluster_sizes += StringPrintf("%d ", _cluster[m].size());
-                }
-
-                LOG(INFO) << "Sorted " << d << " documents into " << FLAGS_M << " views, sized: " << cluster_sizes;
-            }
+            LOG(INFO) << "Sorted " << d << " documents into " << FLAGS_M << " views, sized: " << cluster_sizes;
         }
     }
     
@@ -618,10 +617,11 @@ bool SoftCrossCatMM::restore_data_from_prefix(string prefix) {
     current_state();   // HACK
     clean_initialization();
     return restore_data_from_file(
-                StringPrintf("%s-%d-%s.hlda", get_base_name(_output_filename).c_str(), FLAGS_random_seed, prefix.c_str())
+                StringPrintf("%s-%d-%s.hlda", get_base_name(_output_filename).c_str(), FLAGS_random_seed, prefix.c_str()),
+                false
             );
 }
-bool SoftCrossCatMM::restore_data_from_file(string filename) {
+bool SoftCrossCatMM::restore_data_from_file(string filename, bool seed) {
     bool finished = false;
     struct stat stFileInfo; 
 
@@ -694,7 +694,12 @@ bool SoftCrossCatMM::restore_data_from_file(string filename) {
             CHECK_LT(zdn, FLAGS_M);
 
             _z[d][n] = zdn;
-            _c[d][zdn] = cdm;
+            if (seed) {
+                cdm = 0;
+                _c[d][zdn] = 0;
+            } else {
+                _c[d][zdn] = cdm;
+            }
 
             if (cdm >= _current_component[zdn]) {
                 _current_component[zdn] = cdm + 1;

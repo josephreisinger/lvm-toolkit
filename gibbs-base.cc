@@ -149,6 +149,8 @@ bool GibbsSampler::sample_and_check_for_convergence() {
         write_data(StringPrintf("sample-%05d", _iter));
     }
 
+    write_data("last");
+
     _iter++;
 
     return FLAGS_convergence_interval > 0 && _converged_iterations >= FLAGS_convergence_interval;
