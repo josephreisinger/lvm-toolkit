@@ -583,12 +583,12 @@ inline int sample_normalized_multinomial(vector<pair<unsigned,double> >*d) {
 // Assume that the data coming in are log probs and that they need to be
 // appropriately normalized.
 // XXX: sample_unnormalized_log_multinomial changes d into normal p space
-int sample_unnormalized_log_multinomial(vector<double>*d) {
+unsigned sample_unnormalized_log_multinomial(vector<double>*d) {
     double cut = sample_uniform();
     CHECK_LE(cut, 1.0);
     CHECK_GE(cut, 0.0);
 
-    int i;
+    unsigned int i;
     long double s = 0;
     for (i = 0; i < d->size(); i++) {
         s = addLog(s, d->at(i));
@@ -604,7 +604,7 @@ int sample_unnormalized_log_multinomial(vector<double>*d) {
     CHECK(false) << "improperly normalized distribution " << cut;
     return 0;
 }
-int sample_unnormalized_log_multinomial(vector<pair<unsigned,double> >*d) {
+unsigned sample_unnormalized_log_multinomial(vector<pair<unsigned,double> >*d) {
     double cut = sample_uniform();
     CHECK_LE(cut, 1.0);
     CHECK_GE(cut, 0.0);

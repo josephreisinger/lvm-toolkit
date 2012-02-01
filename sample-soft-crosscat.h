@@ -109,6 +109,8 @@ class SoftCrossCatMM : public GibbsSampler {
         bool is_cluster_marginal;
         // Fixed topic assignments?
         bool is_fixed_topics;
+
+        double _temp_log_lik;
 };
 
 #endif  // SAMPLE_SOFT_CROSSCAT_MM_H_

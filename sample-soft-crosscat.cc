@@ -226,6 +226,8 @@ void SoftCrossCatMM::resample_posterior_c_for(unsigned d) {
 
         // Compute the log likelihood of each cluster assignment given all the other
         // document-cluster assignments
+        
+        // This is essentially Radford Neal's Algorithm 3, check out Mark Johnson's notes: http://cog.brown.edu/~mj/classes/cg168/slides/ChineseRestaurants.pdf
         vector<pair<unsigned,double> > lp_z_d;
         for (clustering::iterator itr = _cluster[m].begin();
                 itr != _cluster[m].end();
@@ -279,6 +281,14 @@ void SoftCrossCatMM::resample_posterior_c_for(unsigned d) {
         // Update the assignment
         _c[d][m] = sample_unnormalized_log_multinomial(&lp_z_d);
         VLOG(1) << "resampling posterior c for " << d << "," << m << ": " << old_cdm << "->" << _c[d][m];
+
+        // Add in the probability of selecting that cluster
+        for (int i = 0; i < lp_z_d.size(); i++) {
+            if (lp_z_d[i].first == _c[d][m]) {
+                _temp_log_lik += lp_z_d[i].second;
+                break;
+            }
+        }
 
         unsigned new_cdm = _c[d][m];
 
@@ -426,23 +436,29 @@ double SoftCrossCatMM::compute_log_likelihood() {
             
     }
     */
-    for (int d = 0; d < _D.size(); d++) {
-        // google::dense_hash_map<unsigned, unsigned> collapsed_w;
-        // collapsed_w.set_empty_key(kEmptyUnsignedKey);
-
-        for (int n = 0; n < _D[d].size(); n++) {
-            unsigned w = _D[d][n];
-            unsigned zdn = _z[d][n];
-
-            // Cluster part
-            unsigned l = _c[d][zdn];
-            log_lik += gammaln(_eta[w] + _cluster[zdn][l].nw[w]) - gammaln(_eta_sum + _cluster[zdn][l].nwsum);
-        }
-            
-    }
-
+    // Add in the normalizer for the multinomial-dirichlet likelihood
+/*
+ *    sum += gammaln(_eta_sum + _cluster[m][l].nwsum) - gammaln(_eta_sum + _cluster[m][l].nwsum + total_removed_count);
+ *    for (int d = 0; d < _D.size(); d++) {
+ *        // google::dense_hash_map<unsigned, unsigned> collapsed_w;
+ *        // collapsed_w.set_empty_key(kEmptyUnsignedKey);
+ *
+ *        for (int n = 0; n < _D[d].size(); n++) {
+ *            unsigned w = _D[d][n];
+ *            unsigned zdn = _z[d][n];
+ *
+ *            // Cluster part
+ *            unsigned l = _c[d][zdn];
+ *            log_lik += gammaln(_eta[w] + _cluster[zdn][l].nw[w]) - gammaln(_eta_sum + _cluster[zdn][l].nwsum);
+ *        }
+ *            
+ *    }
+ *
+ */
     LOG(WARNING) << "skipping LDA part of likelihood";
+    LOG(WARNING) << "using interim computed likelihoods";
         
+    log_lik = _temp_log_lik;
 
     return log_lik;
 }
@@ -482,6 +498,8 @@ void SoftCrossCatMM::resample_posterior() {
     CHECK_GT(_lV, 0);
     CHECK_GT(_lD, 0);
     CHECK_GT(_c.size(), 0);
+
+    _temp_log_lik = 0;
 
     // Resample the cluster indicators
     _c_proposed = _c_failed = 0;
@@ -642,7 +660,7 @@ bool SoftCrossCatMM::restore_data_from_file(string filename) {
 
             // TODO: why is this here?
             if (curr_line == "END") {
-                LOG(INFO) << "read correctly, resuming from iter=" << _iter;
+                LOG(INFO) << "read correctly, resuming from iter=" << _iter << " ll= " << _best_ll;
                 finished = true;
 
                 // Add the documents into the clustering

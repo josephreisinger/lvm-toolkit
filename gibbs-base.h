@@ -378,8 +378,8 @@ void normalizeLog(vector<pair<unsigned,double> >*x);
 // with that probability.
 inline int sample_normalized_multinomial(vector<double>*d);
 inline int sample_normalized_multinomial(vector<pair<unsigned,double> >*d);
-int sample_unnormalized_log_multinomial(vector<double>*d);
-int sample_unnormalized_log_multinomial(vector<pair<unsigned,double> >*d);
+unsigned sample_unnormalized_log_multinomial(vector<double>*d);
+unsigned sample_unnormalized_log_multinomial(vector<pair<unsigned,double> >*d);
 int SAFE_sample_unnormalized_log_multinomial(vector<double>*d);
 int SAFE_sample_unnormalized_log_multinomial(vector<pair<unsigned,double> >*d);
 
