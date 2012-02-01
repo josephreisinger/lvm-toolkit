@@ -279,16 +279,12 @@ void SoftCrossCatMM::resample_posterior_c_for(unsigned d) {
         }
 
         // Update the assignment
-        _c[d][m] = sample_unnormalized_log_multinomial(&lp_z_d);
+        sampler_result x = NEW_sample_unnormalized_log_multinomial(&lp_z_d);
+        _c[d][m] = x.index;
         VLOG(1) << "resampling posterior c for " << d << "," << m << ": " << old_cdm << "->" << _c[d][m];
 
         // Add in the probability of selecting that cluster
-        for (int i = 0; i < lp_z_d.size(); i++) {
-            if (lp_z_d[i].first == _c[d][m]) {
-                _temp_log_lik += lp_z_d[i].second;
-                break;
-            }
-        }
+        _temp_log_lik += log(x.score) - log(x.norm);
 
         unsigned new_cdm = _c[d][m];
 

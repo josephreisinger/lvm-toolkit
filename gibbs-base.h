@@ -139,6 +139,15 @@ const unsigned kEmptyUnsignedKey = UINT_MAX;
 const unsigned kDeletedUnsignedKey = UINT_MAX-1;
 const string kDeletedStringKey = "$$$DELETED$$$";
 
+class sampler_result {
+    public:
+        sampler_result(unsigned index, double score, double norm) 
+            : index(index), score(score), norm(norm) { }
+        double score;
+        double norm;
+        unsigned index;
+};
+
 // A single node in the nCRP, corresponds to a table and also contains a list of
 // children, e.g. the tables in the restaurant that it points to.
 class CRP {
@@ -380,6 +389,7 @@ inline int sample_normalized_multinomial(vector<double>*d);
 inline int sample_normalized_multinomial(vector<pair<unsigned,double> >*d);
 unsigned sample_unnormalized_log_multinomial(vector<double>*d);
 unsigned sample_unnormalized_log_multinomial(vector<pair<unsigned,double> >*d);
+sampler_result NEW_sample_unnormalized_log_multinomial(vector<pair<unsigned,double> >*d);
 int SAFE_sample_unnormalized_log_multinomial(vector<double>*d);
 int SAFE_sample_unnormalized_log_multinomial(vector<pair<unsigned,double> >*d);
 
