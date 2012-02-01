@@ -626,6 +626,7 @@ bool SoftCrossCatMM::restore_data_from_file(string filename) {
         while (true) {
             getline(input_file, curr_line);
 
+            // TODO: why is this here?
             if (curr_line == "END") {
                 LOG(INFO) << "read correctly, resuming from iter=" << _iter;
                 finished = true;
@@ -634,6 +635,8 @@ bool SoftCrossCatMM::restore_data_from_file(string filename) {
                 for (DocumentMap::iterator d_itr = _D.begin(); d_itr != _D.end(); d_itr++) {
                     unsigned d = d_itr->first;  // = document number
                     for (int m = 0; m < FLAGS_M; m++) {
+                        CHECK_GE(_cluster[m][_c[d][m]].ndsum, 0);
+                        CHECK_GE(_cluster_marginal[m].ndsum, 0);
                         _cluster[m][_c[d][m]].ndsum += 1; // Can't use ADD b/c we need to maintain ndsum over all the views
                         _cluster_marginal[m].ndsum += 1; // Can't use ADD b/c we need to maintain ndsum over all the views
                     }

@@ -173,6 +173,9 @@ class CRP {
             }
         }
         void add_no_ndsum(unsigned w, unsigned d) {
+            CHECK_GE(nw[w], 0);
+            CHECK_GE(nw[w], 0);
+            CHECK_GE(nd[d], 0);
             nw[w] += 1;
             nwsum += 1;
             nd[d] += 1;
