@@ -640,6 +640,7 @@ sampler_result NEW_sample_unnormalized_log_multinomial(vector<pair<unsigned,doub
     }
     for (i = 0; i < d->size(); i++) {
         double score = exp(d->at(i).second - s);
+        CHECK_GT(score, 0);
         cut -= score;
 
         if (cut < 0) {

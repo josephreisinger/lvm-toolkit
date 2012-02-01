@@ -144,7 +144,7 @@ class sampler_result {
         sampler_result(unsigned index, double score, double norm) 
             : index(index), score(score), norm(norm) { }
         double score;
-        double norm;
+        long double norm;
         unsigned index;
 };
 
