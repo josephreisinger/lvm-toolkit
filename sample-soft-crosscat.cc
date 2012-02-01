@@ -426,18 +426,23 @@ double SoftCrossCatMM::compute_log_likelihood() {
             
     }
     */
+    for (int d = 0; d < _D.size(); d++) {
+        // google::dense_hash_map<unsigned, unsigned> collapsed_w;
+        // collapsed_w.set_empty_key(kEmptyUnsignedKey);
 
-    // HACK: ll is just sum of moved percentages
-    
-    double cluster_move_p = 0;
-    if (_c_proposed > 0) {
-        cluster_move_p = 100 - _c_failed / (double)_c_proposed*100;
+        for (int n = 0; n < _D[d].size(); n++) {
+            unsigned w = _D[d][n];
+            unsigned zdn = _z[d][n];
+
+            // Cluster part
+            unsigned l = _c[d][zdn];
+            log_lik += gammaln(_eta[w] + _cluster[zdn][l].nw[w]) - gammaln(_eta_sum + _cluster[zdn][l].nwsum);
+        }
+            
     }
-    double view_move_p = 0;
-    if (_m_proposed > 0) {
-        view_move_p = 100 - _m_failed / (double)_m_proposed*100;
-    }
-    log_lik = -cluster_move_p - view_move_p;
+
+    LOG(WARNING) << "skipping LDA part of likelihood";
+        
 
     return log_lik;
 }
