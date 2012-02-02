@@ -94,7 +94,6 @@ void SoftCrossCatMM::clean_initialization() {
         // Push back a single cluster; we'll allocate more potentially later
         _cluster[m].insert(pair<unsigned,CRP>(0, CRP()));
         _current_component[m] = 1;
-
     }
 
     // Initialize _c and _z
@@ -114,6 +113,7 @@ void SoftCrossCatMM::clean_initialization() {
 }
 
 void SoftCrossCatMM::batch_allocation() {
+    LOG(ERROR)<< "this code is highly experimental: probably wont work with topic switching enabled";
     CHECK(FLAGS_implementation == "normal" || FLAGS_implementation == "marginal");
     CHECK(FLAGS_binarize);  // Only works on the binarized docifies
 
@@ -216,9 +216,17 @@ void SoftCrossCatMM::resample_posterior_c_for(unsigned d) {
                 CHECK_GE(_cluster_marginal[m].nw[w], 0);
             }
         }
+
+        // Skip the resample if we didn't remove anything
+        if (total_removed_count == 0) {
+            continue;
+        }
+
+
         CHECK_GT(_cluster[m][old_cdm].ndsum, 0);
 
         _cluster[m][old_cdm].ndsum -= 1;  // # of docs in clsuter
+        _cluster_marginal[m].ndsum -= 1;
 
         CHECK_GE(_cluster[m][old_cdm].nwsum, 0);
         CHECK_LT(_cluster[m][old_cdm].ndsum, _lD);
@@ -236,7 +244,10 @@ void SoftCrossCatMM::resample_posterior_c_for(unsigned d) {
             double sum = 0;
             
             // First add in the prior over the clusters
-            sum += log(_cluster[m][l].ndsum) - log(_lD - 1 + FLAGS_mm_alpha);
+            // XXX: OLD (correct version)
+            // sum += log(_cluster[m][l].ndsum) - log(_lD - 1 + FLAGS_mm_alpha);
+            // NEW: might not work when topic switching is allowed
+            sum += log(_cluster[m][l].ndsum) - log(_cluster_marginal[m].ndsum - 1 + FLAGS_mm_alpha);
 
             // Add in the normalizer for the multinomial-dirichlet likelihood
             sum += gammaln(_eta_sum + _cluster[m][l].nwsum) - gammaln(_eta_sum + _cluster[m][l].nwsum + total_removed_count);
@@ -261,7 +272,8 @@ void SoftCrossCatMM::resample_posterior_c_for(unsigned d) {
             if (_cluster[m].size() < FLAGS_KMAX || FLAGS_KMAX==-1) {
                 if (m != 0 || !FLAGS_cc_include_noise_view) {
                     double sum = 0;
-                    sum += log(FLAGS_mm_alpha) - log(_lD - 1 + FLAGS_mm_alpha);
+                    // sum += log(FLAGS_mm_alpha) - log(_lD - 1 + FLAGS_mm_alpha);
+                    sum += log(FLAGS_mm_alpha) - log(_cluster_marginal[m].ndsum - 1 + FLAGS_mm_alpha);
 
                     // Add in the normalizer for the multinomial-dirichlet likelihood
                     sum += gammaln(_eta_sum) - gammaln(_eta_sum + total_removed_count);
@@ -568,7 +580,10 @@ void SoftCrossCatMM::resample_posterior() {
 
             test_sum += _cluster[m][l].ndsum;
         }
-        CHECK_EQ(test_sum,_lD);  // make sure we haven't lost any docs
+        if (test_sum != _lD) {
+            LOG(ERROR) << "running experimental version: m_docs=" << test_sum << " _lD=" << _lD;
+        }
+        // CHECK_EQ(test_sum,_lD);  // make sure we haven't lost any docs
     }
     LOG(INFO) << "||| cluster moves " << _c_proposed-_c_failed << " / " << _c_proposed << " " 
         << StringPrintf("(%.3f%%)", 100 - _c_failed / (double)_c_proposed*100)
@@ -671,10 +686,16 @@ bool SoftCrossCatMM::restore_data_from_file(string filename, bool seed) {
                 for (DocumentMap::iterator d_itr = _D.begin(); d_itr != _D.end(); d_itr++) {
                     unsigned d = d_itr->first;  // = document number
                     for (int m = 0; m < FLAGS_M; m++) {
-                        CHECK_GE(_cluster[m][_c[d][m]].ndsum, 0);
-                        CHECK_GE(_cluster_marginal[m].ndsum, 0);
-                        _cluster[m][_c[d][m]].ndsum += 1; // Can't use ADD b/c we need to maintain ndsum over all the views
-                        _cluster_marginal[m].ndsum += 1; // Can't use ADD b/c we need to maintain ndsum over all the views
+                        for (int n = 0; n < _D[d].size(); n++) {
+                            // XXX: dont' increment doc counts for every cluster; this will probably break stuff
+                            if (_z[d][n] == m) {
+                                CHECK_GE(_cluster[m][_c[d][m]].ndsum, 0);
+                                CHECK_GE(_cluster_marginal[m].ndsum, 0);
+                                _cluster[m][_c[d][m]].ndsum += 1; // Can't use ADD b/c we need to maintain ndsum over all the views
+                                _cluster_marginal[m].ndsum += 1; // Can't use ADD b/c we need to maintain ndsum over all the views
+                                break;
+                            }
+                        }
                     }
                 }
                 break;

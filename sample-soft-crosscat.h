@@ -90,8 +90,6 @@ class SoftCrossCatMM : public GibbsSampler {
         string _word_features_moniker;
         string _datafile_moniker;
 
-        unsigned _ndsum;
-
         vector<unsigned> _current_component;  // # of clusters currently
 
         string _output_filename;
